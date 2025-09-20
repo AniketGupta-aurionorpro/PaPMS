@@ -110,12 +110,27 @@ public SecurityFilterChain filterChain(HttpSecurity http, AuthenticationProvider
 			.sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.authorizeHttpRequests(auth -> auth
 					.requestMatchers("/auth/**", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**",
-							"/actuator/health")
+							"/actuator/health","/api/organizations/register")
 					.permitAll()
+					
+					 // Endpoint with a specific permission check
+		            .requestMatchers(HttpMethod.GET, "/api/organizations/pending").hasRole("BANK_ADMIN")
+		            
 
 					// GET -> Any authenticated user with a valid role
 					.requestMatchers(HttpMethod.GET, "/**").hasAnyRole("BANK_ADMIN", "ORG_ADMIN", "EMPLOYEE")
+					
+					// GET -> Any authenticated user with a valid authority
+					//.requestMatchers(HttpMethod.GET, "/**").hasAnyAuthority("BANK_ADMIN", "ORG_ADMIN", "EMPLOYEE")
 
+					// POST, PUT, PATCH, DELETE -> Admins only
+//					.requestMatchers(HttpMethod.POST, "/**").hasAnyAuthority("BANK_ADMIN", "ORG_ADMIN")
+//					.requestMatchers(HttpMethod.PUT, "/**").hasAnyAuthority("BANK_ADMIN", "ORG_ADMIN")
+//					.requestMatchers(HttpMethod.PATCH, "/**").hasAnyAuthority("BANK_ADMIN", "ORG_ADMIN")
+//					.requestMatchers(HttpMethod.DELETE, "/**").hasAnyAuthority("BANK_ADMIN", "ORG_ADMIN")
+
+
+					
 					// POST, PUT, PATCH, DELETE -> Admins only
 					.requestMatchers(HttpMethod.POST, "/**").hasAnyRole("BANK_ADMIN", "ORG_ADMIN")
 					.requestMatchers(HttpMethod.PUT, "/**").hasAnyRole("BANK_ADMIN", "ORG_ADMIN")
