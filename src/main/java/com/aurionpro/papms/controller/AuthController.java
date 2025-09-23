@@ -46,6 +46,15 @@ public class AuthController {
 		if (userRepo.existsByUsername(req.username())) {
 			return ResponseEntity.status(HttpStatus.CONFLICT).body("Username already exists");
 		}
+        if(req.role() == Role.BANK_ADMIN) {
+            Long count = userRepo.countUserByRoleEquals(Role.BANK_ADMIN);
+            if(count > 0) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Only one BANK_ADMIN allowed");
+            }
+            User u = User.builder().username(req.username()).password(encoder.encode(req.password())).fullName(req.fullName()).email(req.email()).role(req.role()).organizationId(null).enable(true).build();
+            userRepo.save(u);
+            return ResponseEntity.status(HttpStatus.CREATED).build();
+        }
 		User u = User.builder().username(req.username()).password(encoder.encode(req.password())).fullName(req.fullName()).email(req.email()).role(req.role()).organizationId(req.organizationId()).enable(true).build();
 		userRepo.save(u);
 		return ResponseEntity.status(HttpStatus.CREATED).build();

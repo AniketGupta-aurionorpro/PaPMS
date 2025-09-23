@@ -7,8 +7,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import com.aurionpro.papms.Enum.OrganizationStatus;
+import org.hibernate.annotations.Where;
 
 @Entity
 @Table(name = "organizations") // Maps this entity to the 'organizations' table
@@ -54,4 +56,8 @@ public class Organization {
     private LocalDateTime createdAt = LocalDateTime.now(); // Timestamp of creation
 
     // You will also need to create the OrganizationStatus enum to map to the ENUM in your DB
+    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JoinColumn(name = "relatedEntityId", referencedColumnName = "id", insertable = false, updatable = false)
+    @Where(clause = "related_entity_type = 'ORGANIZATION_VERIFICATION'")
+    private List<Document> documents;
 }

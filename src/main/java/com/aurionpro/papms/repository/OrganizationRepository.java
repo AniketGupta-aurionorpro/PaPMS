@@ -14,8 +14,10 @@ public interface OrganizationRepository extends JpaRepository<Organization, Inte
 
     
     Optional<Organization> findByCompanyName(String companyName);
-//for login and authentication purposes, username is a unique
+
     Optional<Organization> findByUsername(String username);
     
     List<Organization> findByStatus(OrganizationStatus status);
+
+    Optional<Organization> findByBankAssignedAccountNumber(java.lang.String newAccountNumber);
 }
