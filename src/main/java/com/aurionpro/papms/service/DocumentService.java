@@ -4,7 +4,7 @@ import com.aurionpro.papms.dto.DocumentResponseDto;
 
 public interface DocumentService {
 
-    DocumentResponseDto approveDocument(Integer documentId);
+    DocumentResponseDto approveDocument(Integer organizationId, Integer documentId);
 
-    DocumentResponseDto rejectDocument(Integer documentId);
+    DocumentResponseDto rejectDocument(Integer organizationId, Integer documentId);
 }

@@ -1,63 +1,71 @@
 package com.aurionpro.papms.entity;
 
+import com.aurionpro.papms.Enum.OrganizationStatus;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import com.aurionpro.papms.Enum.OrganizationStatus;
-import org.hibernate.annotations.Where;
-
 @Entity
-@Table(name = "organizations") // Maps this entity to the 'organizations' table
-@Data // Generates getters, setters, toString(), equals(), and hashCode()
-@NoArgsConstructor // Creates a no-args constructor
-@AllArgsConstructor // Creates a constructor with all fields
-@Builder // Provides a builder pattern for creating instances
+@Table(name = "organizations")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Organization {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id; // The primary key for the organization
+    private Integer id;
 
-    @Column(nullable = false, unique = true)
-    private String companyName; // The unique name of the organization
-
-    @Column(nullable = false, unique = true)
-    private String username; // Username for the organization's admin
-
-    @Column(nullable = false)
-    private String password; // Hashed password for the organization admin
-
-    private String fullName; // Full name of the organization admin
-
-    @Column(nullable = false, unique = true)
-    @Email
-    private String email; // The primary contact email for the organization
+    @Column(name = "company_name", nullable = false, unique = true)
+    private String companyName;
 
     @Column(columnDefinition = "TEXT")
-    private String address; // The physical address of the organization
+    private String address;
+
+    @Column(name = "contact_email", nullable = false)
+    private String contactEmail;
+
+    @Column(name = "contact_phone")
+    private String contactPhone;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private OrganizationStatus status = OrganizationStatus.PENDING_APPROVAL; // The current status of the organization
+    @Builder.Default
+    private OrganizationStatus status = OrganizationStatus.PENDING_APPROVAL;
 
-    @Column(unique = true, length = 50)
-    private String bankAssignedAccountNumber; // Bank account number assigned by the bank
+    @Column(name = "bank_assigned_account_number", unique = true, length = 50)
+    private String bankAssignedAccountNumber;
 
-    @Column(columnDefinition = "TEXT")
-    private String rejectionReason; // Reason for rejection, if applicable
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
 
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt = LocalDateTime.now(); // Timestamp of creation
+    @Column(name = "internal_balance", nullable = false)
+    @Builder.Default
+    private BigDecimal internalBalance = BigDecimal.ZERO;
 
-    // You will also need to create the OrganizationStatus enum to map to the ENUM in your DB
-    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JoinColumn(name = "relatedEntityId", referencedColumnName = "id", insertable = false, updatable = false)
-    @Where(clause = "related_entity_type = 'ORGANIZATION_VERIFICATION'")
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
+
+    @OneToMany(mappedBy = "organization", fetch = FetchType.EAGER)
+    private List<Employee> employees;
+
+    @OneToMany(mappedBy = "organization", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @org.hibernate.annotations.Where(clause = "related_entity_type = 'ORGANIZATION_VERIFICATION'")
+    @JsonManagedReference
     private List<Document> documents;
 }

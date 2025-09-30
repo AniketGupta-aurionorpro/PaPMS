@@ -1,8 +1,6 @@
 package com.aurionpro.papms.controller;
 
-import com.aurionpro.papms.dto.DocumentResponseDto;
-import com.aurionpro.papms.dto.OrganizationProfileResponse;
-import com.aurionpro.papms.dto.OrganizationRegistrationReq;
+import com.aurionpro.papms.dto.*;
 import com.aurionpro.papms.entity.Document;
 import com.aurionpro.papms.entity.Organization;
 import com.aurionpro.papms.service.OrganizationService;
@@ -15,11 +13,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import org.springframework.web.multipart.MultipartFile;
-
+import com.aurionpro.papms.mapper.OrganizationMapper;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/organizations")
@@ -46,14 +47,14 @@ public class OrganizationController {
             )
     )
     @PostMapping(value = "/register", consumes = "multipart/form-data")
-    public ResponseEntity<Organization> registerOrganizationWithDocuments(
+    public ResponseEntity<OrganizationResponseDto> registerOrganizationWithDocuments(
             @RequestPart("organizationData") String organizationDataJson, // <-- CHANGE: Receive as String
             @RequestPart("document1") MultipartFile document1,
             @RequestPart("document2") MultipartFile document2) {
 
         // CHANGE: Pass the JSON string directly to the service
         Organization newOrg = organizationService.registerOrganizationWithDocuments(organizationDataJson, document1, document2);
-        return new ResponseEntity<>(newOrg, HttpStatus.CREATED);
+        return new ResponseEntity<>(OrganizationMapper.toDto(newOrg), HttpStatus.CREATED);
     }
 
     private static class OrganizationRegistrationMultipart {
@@ -71,11 +72,14 @@ public class OrganizationController {
 
     // Endpoint to get all organizations
     @GetMapping
-    //@PreAuthorize("hasAuthority('BANK_ADMIN')")
     @PreAuthorize("hasRole('BANK_ADMIN')")
-    public ResponseEntity<List<Organization>> getAllOrganizations() {
+    @Transactional(readOnly = true)
+    public ResponseEntity<List<OrganizationResponseDto>> getAllOrganizations() {
         List<Organization> organizations = organizationService.getAllOrganizations();
-        return ResponseEntity.ok(organizations);
+        List<OrganizationResponseDto> responseDtos = organizations.stream()
+                .map(OrganizationMapper::toSimpleDto) // Use simple DTO without nested collections
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(responseDtos);
     }
 
     // Endpoint to get all pending organizations
@@ -99,11 +103,14 @@ public class OrganizationController {
 
     // Endpoint to get an organization by its company name (Search)
     @GetMapping("/by-name/{companyName}")
-   // @PreAuthorize("hasAnyAuthority('BANK_ADMIN', 'ORG_ADMIN')")
+   @Transactional(readOnly = true)
     @PreAuthorize("hasAnyRole('BANK_ADMIN', 'ORG_ADMIN')")
-    public ResponseEntity<Organization> getOrganizationByName(@PathVariable String companyName) {
+    public ResponseEntity<OrganizationResponseDtowithEmployee> getOrganizationByName(@PathVariable String companyName) {
+//        ResponseEntity<Organization> ORG = organizationService.getOrganizationByName(companyName)
+//                .map(ResponseEntity::ok)
+//                .orElse(ResponseEntity.notFound().build());
         return organizationService.getOrganizationByName(companyName)
-                .map(ResponseEntity::ok)
+                .map(org -> ResponseEntity.ok(OrganizationMapper.toDtoWithEmployees(org)))
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -119,11 +126,11 @@ public class OrganizationController {
 
     // Endpoint for Bank Admin to approve a pending organization
     @PutMapping("/{id}/approve")
-    //@PreAuthorize("hasAuthority('BANK_ADMIN')")
     @PreAuthorize("hasRole('BANK_ADMIN')")
-    public ResponseEntity<Organization> approveOrganization(@PathVariable Integer id) {
+    public ResponseEntity<OrganizationResponseDto> approveOrganization(@PathVariable Integer id) {
         Organization approvedOrg = organizationService.approveOrganization(id);
-        return ResponseEntity.ok(approvedOrg);
+        OrganizationResponseDto responseDto = OrganizationMapper.toDto(approvedOrg);
+        return ResponseEntity.ok(responseDto);
     }
 
     // Endpoint for Bank Admin to reject an organization
@@ -146,7 +153,6 @@ public class OrganizationController {
 
     // Endpoint to get an organization's profile
     @GetMapping("/{id}/profile")
-   // @PreAuthorize("hasAnyAuthority('BANK_ADMIN', 'ORG_ADMIN')")
     @PreAuthorize("hasAnyRole('BANK_ADMIN', 'ORG_ADMIN')")
     public ResponseEntity<OrganizationProfileResponse> getProfile(@PathVariable Integer id) {
         OrganizationProfileResponse profile = organizationService.getProfile(id);
