@@ -51,11 +51,11 @@ public class AuthController {
             if(count > 0) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Only one BANK_ADMIN allowed");
             }
-            User u = User.builder().username(req.username()).password(encoder.encode(req.password())).fullName(req.fullName()).email(req.email()).role(req.role()).organizationId(null).enable(true).build();
+            User u = User.builder().username(req.username()).password(encoder.encode(req.password())).fullName(req.fullName()).email(req.email()).role(req.role()).organizationId(null).isActive(true).build();
             userRepo.save(u);
             return ResponseEntity.status(HttpStatus.CREATED).build();
         }
-		User u = User.builder().username(req.username()).password(encoder.encode(req.password())).fullName(req.fullName()).email(req.email()).role(req.role()).organizationId(req.organizationId()).enable(true).build();
+		User u = User.builder().username(req.username()).password(encoder.encode(req.password())).fullName(req.fullName()).email(req.email()).role(req.role()).organizationId(req.organizationId()).isActive(true).build();
 		userRepo.save(u);
 		return ResponseEntity.status(HttpStatus.CREATED).build();
 	}

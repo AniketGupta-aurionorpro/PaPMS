@@ -63,91 +63,98 @@ public class SecurityConfig {
 		return config.getAuthenticationManager();
 	}
 
-	// Main security chain
-//	@Bean
-//	public SecurityFilterChain filterChain(HttpSecurity http, AuthenticationProvider authenticationProvider)
-//			throws Exception {
+
+
+//@Bean
+//public SecurityFilterChain filterChain(HttpSecurity http, AuthenticationProvider authenticationProvider)
+//		throws Exception {
 //
-//		http.csrf(AbstractHttpConfigurer::disable).cors(cors -> cors.configurationSource(corsConfigurationSource()))
-//				.sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-//				.authorizeHttpRequests(auth -> auth
-////						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-//						.requestMatchers("/auth/**", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**",
-//								"/actuator/health")
-//						.permitAll()
+//	http.csrf(AbstractHttpConfigurer::disable).cors(cors -> cors.configurationSource(corsConfigurationSource()))
+//			.sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+//			.authorizeHttpRequests(auth -> auth
+//					.requestMatchers("/auth/**", "/v1/api-docs/**", "/swagger-ui.html", "/swagger-ui/**",
+//                            "/v3/api-docs/**","/actuator/health","/api/organizations/register")
+//					.permitAll()
 //
-//						// GET -> ADMIN or USER
-//						.requestMatchers(HttpMethod.GET, "/**").hasAnyRole("BANK_ADMIN", "ORG_ADMIN", "EMPLOYEE")
+//					 // Endpoint with a specific permission check
+//		            .requestMatchers(HttpMethod.GET, "/api/organizations/pending").hasRole("BANK_ADMIN")
 //
-//						// All other methods -> ADMIN only
-//						.requestMatchers(HttpMethod.POST, "/**").hasRole("BANK_ADMIN")
-//						.requestMatchers(HttpMethod.POST, "/**").hasRole("ORG_ADMIN")
-//						.requestMatchers(HttpMethod.PUT, "/**").hasRole("BANK_ADMIN")
-//						.requestMatchers(HttpMethod.PUT, "/**").hasRole("ORG_ADMIN")
-//						.requestMatchers(HttpMethod.PATCH, "/**").hasRole("BANK_ADMIN")
-//						.requestMatchers(HttpMethod.PATCH, "/**").hasRole("ORG_ADMIN")
-//						.requestMatchers(HttpMethod.DELETE, "/**").hasRole("BANK_ADMIN")
-//						.requestMatchers(HttpMethod.DELETE, "/**").hasRole("ORG_ADMIN")
 //
-//						// Anything else
-//						.anyRequest().authenticated())
+//					// GET -> Any authenticated user with a valid role
+//					.requestMatchers(HttpMethod.GET, "/**").hasAnyRole("BANK_ADMIN", "ORG_ADMIN", "EMPLOYEE")
 //
-//				// JSON 401 / 403
-//				.exceptionHandling(ex -> ex.authenticationEntryPoint(authenticationEntryPoint())
-//						.accessDeniedHandler(accessDeniedHandler()))
+//					// GET -> Any authenticated user with a valid authority
+//					//.requestMatchers(HttpMethod.GET, "/**").hasAnyAuthority("BANK_ADMIN", "ORG_ADMIN", "EMPLOYEE")
 //
-//				.authenticationProvider(authenticationProvider)
-//				.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+//					// POST, PUT, PATCH, DELETE -> Admins only
+////					.requestMatchers(HttpMethod.POST, "/**").hasAnyAuthority("BANK_ADMIN", "ORG_ADMIN")
+////					.requestMatchers(HttpMethod.PUT, "/**").hasAnyAuthority("BANK_ADMIN", "ORG_ADMIN")
+////					.requestMatchers(HttpMethod.PATCH, "/**").hasAnyAuthority("BANK_ADMIN", "ORG_ADMIN")
+////					.requestMatchers(HttpMethod.DELETE, "/**").hasAnyAuthority("BANK_ADMIN", "ORG_ADMIN")
 //
-//		return http.build();
-//	}
+//
+//
+//					// POST, PUT, PATCH, DELETE -> Admins only
+//					.requestMatchers(HttpMethod.POST, "/**").hasAnyRole("BANK_ADMIN", "ORG_ADMIN")
+//					.requestMatchers(HttpMethod.PUT, "/**").hasAnyRole("BANK_ADMIN", "ORG_ADMIN")
+//					.requestMatchers(HttpMethod.PATCH, "/**").hasAnyRole("BANK_ADMIN", "ORG_ADMIN")
+//					.requestMatchers(HttpMethod.DELETE, "/**").hasAnyRole("BANK_ADMIN", "ORG_ADMIN")
+//
+//					// Anything else must be authenticated
+//					.anyRequest().authenticated())
+//
+//			.exceptionHandling(ex -> ex.authenticationEntryPoint(authenticationEntryPoint())
+//					.accessDeniedHandler(accessDeniedHandler()))
+//
+//			.authenticationProvider(authenticationProvider)
+//			.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+//
+//	return http.build();
+//}
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http.csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        // Public endpoints
+                        .requestMatchers(
+                                "/auth/**",
+                                "/api/organizations/register",
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/actuator/health"
+                        ).permitAll()
 
-@Bean
-public SecurityFilterChain filterChain(HttpSecurity http, AuthenticationProvider authenticationProvider)
-		throws Exception {
+                        // Organization endpoints
+                        .requestMatchers(HttpMethod.GET, "/api/organizations/pending").hasRole("BANK_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/organizations/*/approve").hasRole("BANK_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/organizations/*/reject").hasRole("BANK_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/organizations/*/suspend").hasRole("BANK_ADMIN")
 
-	http.csrf(AbstractHttpConfigurer::disable).cors(cors -> cors.configurationSource(corsConfigurationSource()))
-			.sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-			.authorizeHttpRequests(auth -> auth
-					.requestMatchers("/auth/**", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**",
-							"/actuator/health","/api/organizations/register")
-					.permitAll()
-					
-					 // Endpoint with a specific permission check
-		            .requestMatchers(HttpMethod.GET, "/api/organizations/pending").hasRole("BANK_ADMIN")
-		            
+                        // Employee endpoints
+                        .requestMatchers(HttpMethod.POST, "/api/organizations/*/employees/**").hasRole("ORG_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/organizations/*/employees/**").hasRole("ORG_ADMIN")
 
-					// GET -> Any authenticated user with a valid role
-					.requestMatchers(HttpMethod.GET, "/**").hasAnyRole("BANK_ADMIN", "ORG_ADMIN", "EMPLOYEE")
-					
-					// GET -> Any authenticated user with a valid authority
-					//.requestMatchers(HttpMethod.GET, "/**").hasAnyAuthority("BANK_ADMIN", "ORG_ADMIN", "EMPLOYEE")
+                        // Document endpoints
+                        .requestMatchers(HttpMethod.PUT, "/api/organizations/*/documents/*/approve").hasRole("BANK_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/organizations/*/documents/*/reject").hasRole("BANK_ADMIN")
 
-					// POST, PUT, PATCH, DELETE -> Admins only
-//					.requestMatchers(HttpMethod.POST, "/**").hasAnyAuthority("BANK_ADMIN", "ORG_ADMIN")
-//					.requestMatchers(HttpMethod.PUT, "/**").hasAnyAuthority("BANK_ADMIN", "ORG_ADMIN")
-//					.requestMatchers(HttpMethod.PATCH, "/**").hasAnyAuthority("BANK_ADMIN", "ORG_ADMIN")
-//					.requestMatchers(HttpMethod.DELETE, "/**").hasAnyAuthority("BANK_ADMIN", "ORG_ADMIN")
+                        // Vendor endpoints
+                        .requestMatchers("/api/vendors/**").hasRole("ORG_ADMIN")
 
+                        // Default authorization
+                        .anyRequest().authenticated()
+                )
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .authenticationProvider(authenticationProvider(passwordEncoder()))
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(authenticationEntryPoint())
+                        .accessDeniedHandler(accessDeniedHandler()));
 
-					
-					// POST, PUT, PATCH, DELETE -> Admins only
-					.requestMatchers(HttpMethod.POST, "/**").hasAnyRole("BANK_ADMIN", "ORG_ADMIN")
-					.requestMatchers(HttpMethod.PUT, "/**").hasAnyRole("BANK_ADMIN", "ORG_ADMIN")
-					.requestMatchers(HttpMethod.PATCH, "/**").hasAnyRole("BANK_ADMIN", "ORG_ADMIN")
-					.requestMatchers(HttpMethod.DELETE, "/**").hasAnyRole("BANK_ADMIN", "ORG_ADMIN")
-
-					// Anything else must be authenticated
-					.anyRequest().authenticated())
-
-			.exceptionHandling(ex -> ex.authenticationEntryPoint(authenticationEntryPoint())
-					.accessDeniedHandler(accessDeniedHandler()))
-
-			.authenticationProvider(authenticationProvider)
-			.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
-
-	return http.build();
-}
+        return http.build();
+    }
 
 	// CORS
 	@Bean

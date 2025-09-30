@@ -1,17 +1,18 @@
 package com.aurionpro.papms.entity;
 
 import com.aurionpro.papms.Enum.Role;
-import jakarta.validation.constraints.Email;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "user")
+@Table(name = "users") // Changed from 'user' to 'users' for consistency
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -28,21 +29,33 @@ public class User {
     @Column(nullable = false)
     private String password;
 
+    @Column(name = "full_name", nullable = false)
     private String fullName;
 
     @Column(nullable = false, unique = true)
-    @Email
     private String email;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;
 
+    @Column(name = "organization_id")
     private Integer organizationId;
 
-    private Boolean enable;
+    @Column(name = "is_active")
+    @Builder.Default
+    public Boolean isActive = true;
 
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    // Helper method for Spring Security compatibility
+    public boolean getEnable() {
+        return isActive;
+    }
 }
-

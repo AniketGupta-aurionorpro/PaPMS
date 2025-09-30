@@ -7,6 +7,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 
 import java.time.LocalDateTime;
 
@@ -35,8 +36,8 @@ public class Document {
     @Column(nullable = false)
     private DocumentType relatedEntityType;
 
-    @Column(nullable = false)
-    private Integer relatedEntityId;
+//    @Column(nullable = false)
+//    private Integer relatedEntityId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -44,4 +45,9 @@ public class Document {
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime uploadedAt = LocalDateTime.now();
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "related_entity_id", referencedColumnName = "id")
+    @JsonBackReference
+    private Organization organization;
 }

@@ -15,7 +15,6 @@ public interface OrganizationRepository extends JpaRepository<Organization, Inte
     
     Optional<Organization> findByCompanyName(String companyName);
 
-    Optional<Organization> findByUsername(String username);
     
     List<Organization> findByStatus(OrganizationStatus status);
 

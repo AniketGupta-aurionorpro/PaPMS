@@ -1,6 +1,8 @@
 package com.aurionpro.papms.dto;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -32,4 +34,14 @@ public class OrganizationRegistrationReq {
     private String email;
 
     private String address;
+
+    @Max(15)
+    @Min(10)
+    @NotBlank(message = "Enter a Phone number to contact")
+    private String contactNumber;
+
+
+    public String getContactPhone() {
+        return contactNumber;
+    }
 }

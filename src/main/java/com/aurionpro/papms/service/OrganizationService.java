@@ -4,6 +4,7 @@ package com.aurionpro.papms.service;
 import com.aurionpro.papms.dto.DocumentResponseDto;
 import com.aurionpro.papms.dto.OrganizationProfileResponse;
 import com.aurionpro.papms.dto.OrganizationRegistrationReq;
+import com.aurionpro.papms.dto.OrganizationResponseDto;
 import com.aurionpro.papms.entity.Document;
 import com.aurionpro.papms.entity.Organization;
 import org.springframework.web.multipart.MultipartFile;
@@ -37,4 +38,6 @@ public interface OrganizationService {
 
 //    List<Document> uploadVerificationDocuments(Integer organizationId, MultipartFile document1, MultipartFile document2);
     List<DocumentResponseDto> uploadVerificationDocuments(Integer organizationId, MultipartFile document1, MultipartFile document2);
+
+
 }
