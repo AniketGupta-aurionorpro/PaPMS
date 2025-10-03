@@ -1,7 +1,7 @@
 // repository/VendorRepository.java
 package com.aurionpro.papms.repository;
 
-import com.aurionpro.papms.entity.Vendor;
+import com.aurionpro.papms.entity.vendorEntity.Vendor;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 

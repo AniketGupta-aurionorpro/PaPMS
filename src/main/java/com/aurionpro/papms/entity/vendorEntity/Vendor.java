@@ -1,6 +1,7 @@
 // entity/Vendor.java
-package com.aurionpro.papms.entity;
+package com.aurionpro.papms.entity.vendorEntity;
 
+import com.aurionpro.papms.entity.Organization;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

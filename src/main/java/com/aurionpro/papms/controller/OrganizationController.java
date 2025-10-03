@@ -77,7 +77,7 @@ public class OrganizationController {
     public ResponseEntity<List<OrganizationResponseDto>> getAllOrganizations() {
         List<Organization> organizations = organizationService.getAllOrganizations();
         List<OrganizationResponseDto> responseDtos = organizations.stream()
-                .map(OrganizationMapper::toSimpleDto) // Use simple DTO without nested collections
+                .map(OrganizationMapper::toSimpleDto) // without nested collections
                 .collect(Collectors.toList());
         return ResponseEntity.ok(responseDtos);
     }

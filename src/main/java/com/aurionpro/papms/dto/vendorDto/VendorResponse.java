@@ -1,5 +1,5 @@
 // dto/VendorResponse.java
-package com.aurionpro.papms.dto;
+package com.aurionpro.papms.dto.vendorDto;
 
 import lombok.Data;
 
