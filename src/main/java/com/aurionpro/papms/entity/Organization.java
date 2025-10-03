@@ -68,4 +68,7 @@ public class Organization {
     @org.hibernate.annotations.Where(clause = "related_entity_type = 'ORGANIZATION_VERIFICATION'")
     @JsonManagedReference
     private List<Document> documents;
+
+    @Column(name = "logo_url", length = 512) // ADD THIS LINE
+    private String logoUrl;
 }

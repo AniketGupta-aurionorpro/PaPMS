@@ -14,5 +14,6 @@ public class OrganizationProfileResponse {
     private Integer id;
     private String companyName;
     private String email;
+    private String logoUrl;
     private String status;
 }

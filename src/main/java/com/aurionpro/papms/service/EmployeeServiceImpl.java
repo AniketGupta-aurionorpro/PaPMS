@@ -176,10 +176,10 @@ public class EmployeeServiceImpl implements EmployeeService {
                     }
 
                     Organization org = organizationRepository.findById(organizationId).get();
-
+                    String temporaryPassword = generateTemporaryPassword();
                     User newUser = User.builder()
                             .username(email)
-                            .password(passwordEncoder.encode(generateTemporaryPassword()))
+                            .password(passwordEncoder.encode(temporaryPassword))
                             .fullName(fullName)
                             .email(email)
                             .role(Role.EMPLOYEE)
@@ -187,9 +187,9 @@ public class EmployeeServiceImpl implements EmployeeService {
                             .isActive(true)
                             .build();
                     User savedUser = appUserRepository.save(newUser);
-                    String subject = "Your Organization Registration is Approved";
-                    String body = "<h3>Congratulations! Welcome to the  " + org.getCompanyName() + " Your Employee Payroll UserName: "+newUser.getEmail()+" <br/> Password is:"+newUser.getPassword()+" .</h3>";
-//                    emailService.sendEmail("Org-email@example.com", newUser.getEmail(), subject, body);
+                    String subject = "Credential for the Payroll System";
+                    String body = "<h3>Congratulations! Welcome to the  " + org.getCompanyName() + " Your Employee Payroll UserName: "+newUser.getEmail()+" <br/> Password is:"+temporaryPassword+" .</h3>";
+                    emailService.sendEmail("Org-email@example.com", newUser.getEmail(), subject, body);
 
                     Employee newEmployee = Employee.builder()
                             .user(savedUser)

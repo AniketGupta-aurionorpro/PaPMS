@@ -15,6 +15,7 @@ public class OrganizationResponseDtowithEmployee {
     private String address;
     private String contactEmail;
     private OrganizationStatus status;
+    private String logoUrl;
     private String bankAssignedAccountNumber;
     private BigDecimal internalBalance;
     private LocalDateTime createdAt;
