@@ -21,11 +21,13 @@ public class Client {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(name = "user_id", nullable = false, unique = true)
-    private Integer userId;
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", referencedColumnName = "id", nullable = false, unique = true)
+    private User user;
 
-    @Column(name = "organization_id", nullable = false)
-    private Integer organizationId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
 
     @Column(name = "company_name")
     private String companyName;
@@ -33,6 +35,7 @@ public class Client {
     @Column(name = "contact_person")
     private String contactPerson;
 
+    @Builder.Default
     @Column(name = "is_active")
     private boolean isActive = true;
 

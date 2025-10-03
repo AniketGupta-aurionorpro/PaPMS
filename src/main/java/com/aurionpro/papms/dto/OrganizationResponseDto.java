@@ -14,6 +14,7 @@ public class OrganizationResponseDto {
     private String companyName;
     private String address;
     private String contactEmail;
+    private String logoUrl;
     private OrganizationStatus status;
     private String bankAssignedAccountNumber;
     private BigDecimal internalBalance;

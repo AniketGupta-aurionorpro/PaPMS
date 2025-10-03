@@ -15,6 +15,7 @@ public class OrganizationMapper {
         dto.setCompanyName(organization.getCompanyName());
         dto.setAddress(organization.getAddress());
         dto.setContactEmail(organization.getContactEmail());
+        dto.setLogoUrl(organization.getLogoUrl());
         dto.setStatus(organization.getStatus());
         dto.setBankAssignedAccountNumber(organization.getBankAssignedAccountNumber());
         dto.setInternalBalance(organization.getInternalBalance());
@@ -39,6 +40,7 @@ public class OrganizationMapper {
         dto.setCompanyName(organization.getCompanyName());
         dto.setAddress(organization.getAddress());
         dto.setContactEmail(organization.getContactEmail());
+        dto.setLogoUrl(organization.getLogoUrl());
         dto.setStatus(organization.getStatus());
         dto.setBankAssignedAccountNumber(organization.getBankAssignedAccountNumber());
         dto.setInternalBalance(organization.getInternalBalance());
@@ -51,6 +53,7 @@ public class OrganizationMapper {
         dto.setCompanyName(organization.getCompanyName());
         dto.setAddress(organization.getAddress());
         dto.setContactEmail(organization.getContactEmail());
+        dto.setLogoUrl(organization.getLogoUrl());
         dto.setStatus(organization.getStatus());
         dto.setBankAssignedAccountNumber(organization.getBankAssignedAccountNumber());
         dto.setInternalBalance(organization.getInternalBalance());

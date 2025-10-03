@@ -34,6 +34,8 @@ public interface OrganizationService {
 
     Organization suspendOrganization(Integer id);
 
+    Organization registerOrganizationWithDocuments(String organizationDataJson, MultipartFile document1, MultipartFile document2, MultipartFile logo);
+
     OrganizationProfileResponse getProfile(Integer id);
 
 //    List<Document> uploadVerificationDocuments(Integer organizationId, MultipartFile document1, MultipartFile document2);

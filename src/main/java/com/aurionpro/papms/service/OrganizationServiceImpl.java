@@ -34,6 +34,8 @@ import java.util.stream.Collectors;
 public class OrganizationServiceImpl implements OrganizationService {
 
     private final OrganizationRepository organizationRepository;
+    private static final List<String> ALLOWED_IMAGE_TYPES = List.of("image/jpeg", "image/png");
+
     private final PasswordEncoder passwordEncoder;
     private final AppUserRepository userRepo;
     private final EmailService emailService;
@@ -99,6 +101,79 @@ public class OrganizationServiceImpl implements OrganizationService {
         uploadAndLinkDocuments(savedOrganization, document1, document2);
 
         return savedOrganization;
+    }
+
+    @Override
+    @Transactional
+    // MODIFIED: Added logo parameter
+    public Organization registerOrganizationWithDocuments(String organizationDataJson, MultipartFile document1, MultipartFile document2, MultipartFile logo) {
+        OrganizationRegistrationReq request;
+        try {
+            request = objectMapper.readValue(organizationDataJson, OrganizationRegistrationReq.class);
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("Invalid JSON format for organizationData.", e);
+        }
+
+        if (organizationRepository.findByCompanyName(request.getCompanyName()).isPresent()) {
+            throw new IllegalArgumentException("Company name is already in use.");
+        }
+        if (userRepo.existsByUsername(request.getUsername())) {
+            throw new IllegalArgumentException("Username is already taken.");
+        }
+        validateIsPdf(document1);
+        validateIsPdf(document2);
+
+        // Create the Organization entity
+        Organization organization = Organization.builder()
+                .companyName(request.getCompanyName())
+                .contactEmail(request.getEmail())
+                .address(request.getAddress())
+                .status(OrganizationStatus.PENDING_APPROVAL)
+                .build();
+
+        // --- LOGO UPLOAD LOGIC START ---
+        if (logo != null && !logo.isEmpty()) {
+            validateIsImage(logo); // Validate the logo file type
+
+            // Upload the logo to Cloudinary
+            String folderName = "organization-logos/" + request.getCompanyName().replaceAll("\\s+", "_").toLowerCase();
+            Map<String, String> uploadResult = cloudinaryService.uploadFile(logo, folderName);
+            String logoUrl = uploadResult.get("url");
+
+            // Set the logo URL on the organization entity
+            organization.setLogoUrl(logoUrl);
+        }
+        // --- LOGO UPLOAD LOGIC END ---
+
+        // Save the Organization to get its ID
+        Organization savedOrganization = organizationRepository.save(organization);
+
+        // Create the ORG_ADMIN user
+        User orgAdminUser = User.builder()
+                .username(request.getUsername())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .fullName(request.getFullName())
+                .email(request.getEmail())
+                .role(Role.ORG_ADMIN)
+                .organizationId(savedOrganization.getId())
+                .isActive(false)
+                .build();
+        userRepo.save(orgAdminUser);
+
+        // Upload verification documents and link them to the organization
+        uploadAndLinkDocuments(savedOrganization, document1, document2);
+
+        return savedOrganization;
+    }
+
+    private void validateIsImage(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Image file cannot be null or empty.");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_IMAGE_TYPES.contains(contentType)) {
+            throw new IllegalArgumentException("Invalid file type for logo: '" + file.getOriginalFilename() + "'. Only JPG, JPEG, and PNG files are allowed.");
+        }
     }
 
     @Override
@@ -174,6 +249,7 @@ public class OrganizationServiceImpl implements OrganizationService {
                 .map(org -> new OrganizationProfileResponse(
                         org.getId(),
                         org.getCompanyName(),
+                        org.getLogoUrl(),
                         org.getContactEmail(), // Use the correct field name
                         org.getStatus().name()))
                 .orElseThrow(() -> new NotFoundException("Organization not found with ID: " + id));

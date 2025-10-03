@@ -37,8 +37,8 @@ public class OrganizationController {
 //    }
 
     @Operation(
-            summary = "Register a new organization with verification documents",
-            description = "This endpoint registers a new organization. Provide organization data as a JSON string and two PDF documents.",
+            summary = "Register a new organization with verification documents and an optional logo", // MODIFIED
+            description = "This endpoint registers a new organization. Provide organization data as a JSON string, two PDF documents, and an optional logo image.", // MODIFIED
             requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     content = @Content(
                             mediaType = "multipart/form-data",
@@ -48,18 +48,18 @@ public class OrganizationController {
     )
     @PostMapping(value = "/register", consumes = "multipart/form-data")
     public ResponseEntity<OrganizationResponseDto> registerOrganizationWithDocuments(
-            @RequestPart("organizationData") String organizationDataJson, // <-- CHANGE: Receive as String
+            @RequestPart("organizationData") String organizationDataJson,
             @RequestPart("document1") MultipartFile document1,
-            @RequestPart("document2") MultipartFile document2) {
+            @RequestPart("document2") MultipartFile document2,
+            @RequestPart(value = "logo", required = false) MultipartFile logo) { // MODIFIED: Added optional logo part
 
-        // CHANGE: Pass the JSON string directly to the service
-        Organization newOrg = organizationService.registerOrganizationWithDocuments(organizationDataJson, document1, document2);
+        // Pass the new logo file to the service
+        Organization newOrg = organizationService.registerOrganizationWithDocuments(organizationDataJson, document1, document2, logo); // MODIFIED
         return new ResponseEntity<>(OrganizationMapper.toDto(newOrg), HttpStatus.CREATED);
     }
 
     private static class OrganizationRegistrationMultipart {
-        // This class is for Swagger documentation purposes and is fine as is.
-        @Schema(type = "string", description = "The organization's details in JSON format. IMPORTANT: This part must have a Content-Type of application/json.")
+        @Schema(type = "string", description = "The organization's details in JSON format.")
         public OrganizationRegistrationReq organizationData;
 
         @Schema(description = "The first verification document (PDF).", type = "string", format = "binary")
@@ -67,7 +67,11 @@ public class OrganizationController {
 
         @Schema(description = "The second verification document (PDF).", type = "string", format = "binary")
         public MultipartFile document2;
+
+        @Schema(description = "The organization's logo (JPG, JPEG, PNG).", type = "string", format = "binary")
+        public MultipartFile logo; // ADD THIS
     }
+
 
 
     // Endpoint to get all organizations
