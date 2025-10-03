@@ -26,7 +26,7 @@ public class TransactionServiceImpl implements TransactionService {
         if (organization.getInternalBalance().compareTo(amount) < 0) {
             throw new IllegalStateException("Insufficient funds to complete this payment.");
         }
-
+        //update the organization's balance.
         BigDecimal newBalance = organization.getInternalBalance().subtract(amount);
         organization.setInternalBalance(newBalance);
         organizationRepository.save(organization);

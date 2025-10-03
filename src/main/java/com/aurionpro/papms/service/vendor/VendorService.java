@@ -1,9 +1,9 @@
 // service/VendorService.java
-package com.aurionpro.papms.service;
+package com.aurionpro.papms.service.vendor;
 
-import com.aurionpro.papms.dto.VendorPaymentRequest;
-import com.aurionpro.papms.dto.VendorRequest;
-import com.aurionpro.papms.dto.VendorResponse;
+import com.aurionpro.papms.dto.vendorDto.VendorPaymentRequest;
+import com.aurionpro.papms.dto.vendorDto.VendorRequest;
+import com.aurionpro.papms.dto.vendorDto.VendorResponse;
 import java.util.List;
 
 public interface VendorService {

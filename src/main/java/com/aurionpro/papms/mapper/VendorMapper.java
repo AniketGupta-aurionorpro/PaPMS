@@ -1,11 +1,11 @@
 // mapper/VendorMapper.java
 package com.aurionpro.papms.mapper;
 
-import com.aurionpro.papms.dto.VendorRequest;
-import com.aurionpro.papms.dto.VendorResponse;
+import com.aurionpro.papms.dto.vendorDto.VendorRequest;
+import com.aurionpro.papms.dto.vendorDto.VendorResponse;
 import com.aurionpro.papms.entity.BankAccount;
 import com.aurionpro.papms.entity.Organization;
-import com.aurionpro.papms.entity.Vendor;
+import com.aurionpro.papms.entity.vendorEntity.Vendor;
 
 public class VendorMapper {
     public static Vendor toEntity(VendorRequest request, Organization organization) {

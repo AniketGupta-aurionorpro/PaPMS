@@ -150,7 +150,11 @@ public class EmployeeServiceImpl implements EmployeeService {
         try (BufferedReader fileReader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8));
              CSVParser csvParser = new CSVParser(fileReader,
                      CSVFormat.DEFAULT.builder().setHeader(headers).setSkipHeaderRecord(true).setTrim(true).build())) {
+        //setHeader(headers): Tells the parser to map columns by name, not by index.
+            //setSkipHeaderRecord(true): Ignores the first row.
+            //setTrim(true): leading/trailing whitespace from values.
 
+            // iterate providing one row at a time as a CSVRecord object.
             for (CSVRecord csvRecord : csvParser) {
                 try {
                     if (csvRecord.size() != headers.length) {

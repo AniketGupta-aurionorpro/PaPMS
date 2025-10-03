@@ -1,7 +1,8 @@
 // entity/VendorPayment.java
-package com.aurionpro.papms.entity;
+package com.aurionpro.papms.entity.vendorEntity;
 
 import com.aurionpro.papms.Enum.PaymentStatus;
+import com.aurionpro.papms.entity.Organization;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -12,7 +13,11 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "vendor_payments")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class VendorPayment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

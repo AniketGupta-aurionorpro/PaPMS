@@ -6,5 +6,5 @@ import java.util.Map;
 
 public interface CloudinaryService {
 
-    public Map<String, String> uploadFile(MultipartFile file, String folderName);
+    Map<String, String> uploadFile(MultipartFile file, String folderName);
 }

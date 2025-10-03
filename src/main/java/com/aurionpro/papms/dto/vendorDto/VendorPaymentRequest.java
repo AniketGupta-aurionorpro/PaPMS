@@ -1,5 +1,5 @@
 // dto/VendorPaymentRequest.java
-package com.aurionpro.papms.dto;
+package com.aurionpro.papms.dto.vendorDto;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;

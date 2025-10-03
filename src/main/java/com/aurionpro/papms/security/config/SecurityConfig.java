@@ -127,6 +127,13 @@ public class SecurityConfig {
                                 "/actuator/health"
                         ).permitAll()
 
+                        //deposit
+                        .requestMatchers(HttpMethod.POST, "/api/deposits/self").hasRole("ORG_ADMIN")
+
+
+                        //bill vendor
+                        .requestMatchers("/api/bills/vendors/**").hasRole("ORG_ADMIN")
+
                         // Organization endpoints
                         .requestMatchers(HttpMethod.GET, "/api/organizations/pending").hasRole("BANK_ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/organizations/*/approve").hasRole("BANK_ADMIN")

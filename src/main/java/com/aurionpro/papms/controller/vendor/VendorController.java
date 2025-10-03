@@ -1,8 +1,8 @@
-package com.aurionpro.papms.controller;
+package com.aurionpro.papms.controller.vendor;
 
-import com.aurionpro.papms.dto.VendorRequest;
-import com.aurionpro.papms.dto.VendorResponse;
-import com.aurionpro.papms.service.VendorService;
+import com.aurionpro.papms.dto.vendorDto.VendorRequest;
+import com.aurionpro.papms.dto.vendorDto.VendorResponse;
+import com.aurionpro.papms.service.vendor.VendorService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -19,31 +19,21 @@ public class VendorController {
 
     private final VendorService vendorService;
 
-    /**
-     * Endpoint to create a new vendor.
-     * Only users with the ORG_ADMIN role can access this.
-     */
     @PostMapping
     @PreAuthorize("hasRole('ORG_ADMIN')")
+    // convert the JSON from the request body into a VendorRequest object
     public ResponseEntity<VendorResponse> createVendor(@Valid @RequestBody VendorRequest vendorRequest) {
+        //VendorResponse DTO is stored in a local variable called newVendor
         VendorResponse newVendor = vendorService.createVendor(vendorRequest);
         return new ResponseEntity<>(newVendor, HttpStatus.CREATED);
     }
 
-    /**
-     * Endpoint to get a specific vendor by its ID.
-     * Accessible by ORG_ADMIN. The service layer ensures they can only access their own vendors.
-     */
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ORG_ADMIN')")
     public ResponseEntity<VendorResponse> getVendorById(@PathVariable Long id) {
         return ResponseEntity.ok(vendorService.getVendorById(id));
     }
 
-    /**
-     * Endpoint to get all vendors for a specific organization.
-     * Accessible by ORG_ADMIN.
-     */
     @GetMapping("/organization/{id}")
     @PreAuthorize("hasRole('ORG_ADMIN')")
     public ResponseEntity<List<VendorResponse>> getVendorsByOrganization(@PathVariable Integer id) {
@@ -51,10 +41,6 @@ public class VendorController {
         return ResponseEntity.ok(vendors);
     }
 
-    /**
-     * Endpoint to update an existing vendor's details.
-     * Only ORG_ADMIN can update vendors.
-     */
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ORG_ADMIN')")
     public ResponseEntity<VendorResponse> updateVendor(@PathVariable Long id, @Valid @RequestBody VendorRequest vendorRequest) {
@@ -62,10 +48,7 @@ public class VendorController {
         return ResponseEntity.ok(updatedVendor);
     }
 
-    /**
-     * Endpoint to soft-delete (deactivate) a vendor.
-     * Only ORG_ADMIN can delete vendors.
-     */
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ORG_ADMIN')")
     public ResponseEntity<String> deleteVendor(@PathVariable Long id) {
