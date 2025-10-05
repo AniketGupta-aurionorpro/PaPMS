@@ -12,6 +12,8 @@ import com.aurionpro.papms.mapper.ClientMapper;
 import com.aurionpro.papms.mapper.InvoiceMapper;
 import com.aurionpro.papms.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -167,14 +169,26 @@ public class ClientServiceImpl implements ClientService {
         return ClientMapper.toDto(client);
     }
 
+
     @Override
     @Transactional(readOnly = true)
-    public List<ClientResponseDto> getAllClientsForCurrentOrg() {
+    public Page<ClientResponseDto> getAllClientsForCurrentOrg(Pageable pageable) {
         User currentUser = getLoggedInUser();
-        return clientRepository.findByOrganizationId(currentUser.getOrganizationId()).stream()
-                .map(ClientMapper::toDto)
-                .collect(Collectors.toList());
+
+        // 1. Call the new paginated repository method
+        Page<Client> clientPage = clientRepository.findByOrganizationId(currentUser.getOrganizationId(), pageable);
+
+        // 2. Use the .map() function to convert the Page<Client> to Page<ClientResponseDto>
+        return clientPage.map(ClientMapper::toDto);
     }
+//    @Override
+//    @Transactional(readOnly = true)
+//    public List<ClientResponseDto> getAllClientsForCurrentOrg() {
+//        User currentUser = getLoggedInUser();
+//        return clientRepository.findByOrganizationId(currentUser.getOrganizationId()).stream()
+//                .map(ClientMapper::toDto)
+//                .collect(Collectors.toList());
+//    }
 
     @Override
     @Transactional

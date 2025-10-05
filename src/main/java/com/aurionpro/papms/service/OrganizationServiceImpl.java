@@ -14,12 +14,15 @@ import com.aurionpro.papms.entity.Organization;
 import com.aurionpro.papms.entity.User;
 import com.aurionpro.papms.exception.NotFoundException;
 import com.aurionpro.papms.mapper.DocumentMapper;
+import com.aurionpro.papms.mapper.OrganizationMapper;
 import com.aurionpro.papms.repository.AppUserRepository;
 import com.aurionpro.papms.repository.DocumentRepository;
 import com.aurionpro.papms.repository.OrganizationRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -289,13 +292,24 @@ public class OrganizationServiceImpl implements OrganizationService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<Organization> getAllOrganizations() {
-        return organizationRepository.findByStatus(OrganizationStatus.ACTIVE);
+    public Page<OrganizationResponseDto> getAllOrganizations(Pageable pageable) {
+        // 1. Call the new paginated repository method to get a page of ACTIVE organizations
+        Page<Organization> organizationPage = organizationRepository.findByStatus(OrganizationStatus.ACTIVE, pageable);
+
+        // 2. Map the Page<Organization> to Page<OrganizationResponseDto>
+        // We use toSimpleDto to avoid sending nested employee/document lists in a list view
+        return organizationPage.map(OrganizationMapper::toSimpleDto);
     }
+//    @Override
+//    @Transactional(readOnly = true)
+//    public List<Organization> getAllOrganizations() {
+//        return organizationRepository.findByStatus(OrganizationStatus.ACTIVE);
+//    }
 
     @Override
     public List<Organization> getPendingOrganizations() {
-        return organizationRepository.findByStatus(OrganizationStatus.PENDING_APPROVAL);
+        // MODIFIED: Call the new, correct repository method
+        return organizationRepository.findAllByStatus(OrganizationStatus.PENDING_APPROVAL);
     }
 
     @Override
@@ -376,3 +390,4 @@ public class OrganizationServiceImpl implements OrganizationService {
     }
 
 }
+

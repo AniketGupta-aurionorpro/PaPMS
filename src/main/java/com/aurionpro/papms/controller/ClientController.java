@@ -5,6 +5,9 @@ import com.aurionpro.papms.service.ClientService;
 import com.aurionpro.papms.service.InvoicePdfService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -29,11 +32,18 @@ public class ClientController {
         return new ResponseEntity<>(clientService.createClient(request), HttpStatus.CREATED);
     }
 
+
     @GetMapping("/clients")
     @PreAuthorize("hasRole('ORG_ADMIN')")
-    public ResponseEntity<List<ClientResponseDto>> getAllClients() {
-        return ResponseEntity.ok(clientService.getAllClientsForCurrentOrg());
+    public ResponseEntity<Page<ClientResponseDto>> getAllClients(@ParameterObject Pageable pageable) {
+        Page<ClientResponseDto> clientsPage = clientService.getAllClientsForCurrentOrg(pageable);
+        return ResponseEntity.ok(clientsPage);
     }
+//    @GetMapping("/clients")
+//    @PreAuthorize("hasRole('ORG_ADMIN')")
+//    public ResponseEntity<List<ClientResponseDto>> getAllClients() {
+//        return ResponseEntity.ok(clientService.getAllClientsForCurrentOrg());
+//    }
 
     @GetMapping("/clients/{clientId}")
     @PreAuthorize("hasRole('ORG_ADMIN')")

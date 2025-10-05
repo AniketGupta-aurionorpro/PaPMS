@@ -1,6 +1,8 @@
 package com.aurionpro.papms.repository;
 
 import com.aurionpro.papms.entity.Client;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -16,7 +18,9 @@ public interface ClientRepository extends JpaRepository<Client, Integer> {
      * @param organizationId The ID of the organization.
      * @return A list of clients for the given organization.
      */
-    List<Client> findByOrganizationId(Integer organizationId);
+    //List<Client> findByOrganizationId(Integer organizationId);
+// MODIFIED: This method now supports pagination
+    Page<Client> findByOrganizationId(Integer organizationId, Pageable pageable);
 
     /**
      * Finds a client by their associated user ID.
