@@ -1,14 +1,12 @@
 package com.aurionpro.papms.entity;
 
-import com.aurionpro.papms.Enum.BankAccountStatus;
 import com.aurionpro.papms.Enum.OwnerType;
+import com.aurionpro.papms.entity.vendorEntity.Vendor;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -21,10 +19,21 @@ public class BankAccount {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Long id;
 
-    @Column(name = "owner_id", nullable = false)
-    private Integer ownerId;
+    // For Employees
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "employee_id")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Employee employee;
+
+    // For Vendors
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "vendor_id")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Vendor vendor;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "owner_type", nullable = false)
@@ -43,10 +52,8 @@ public class BankAccount {
     private String ifscCode;
 
     @Column(name = "is_primary")
+    @Builder.Default
     private boolean isPrimary = true;
-
-    @Enumerated(EnumType.STRING)
-    private BankAccountStatus status = BankAccountStatus.PENDING_VERIFICATION;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -55,4 +62,20 @@ public class BankAccount {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    // Helper methods remain the same
+    public Long getOwnerId() {
+        return ownerType == OwnerType.EMPLOYEE ?
+                (employee != null ? employee.getId() : null) :
+                (vendor != null ? vendor.getId() : null);
+    }
+
+    public String getOwnerName() {
+        if (ownerType == OwnerType.EMPLOYEE && employee != null && employee.getUser() != null) {
+            return employee.getUser().getFullName();
+        } else if (ownerType == OwnerType.VENDOR && vendor != null) {
+            return vendor.getVendorName();
+        }
+        return null;
+    }
 }

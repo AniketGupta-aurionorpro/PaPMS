@@ -2,10 +2,7 @@ package com.aurionpro.papms.entity;
 
 import com.aurionpro.papms.Enum.OrganizationStatus;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
@@ -62,11 +59,15 @@ public class Organization {
     private LocalDateTime updatedAt;
 
     @OneToMany(mappedBy = "organization", fetch = FetchType.EAGER)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private List<Employee> employees;
 
     @OneToMany(mappedBy = "organization", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @org.hibernate.annotations.Where(clause = "related_entity_type = 'ORGANIZATION_VERIFICATION'")
     @JsonManagedReference
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private List<Document> documents;
 
     @Column(name = "logo_url", length = 512) // ADD THIS LINE

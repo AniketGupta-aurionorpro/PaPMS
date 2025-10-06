@@ -55,13 +55,12 @@ public class VendorServiceImpl implements VendorService {
             throw new DuplicateUserException("A vendor with this name already exists for your organization.");
         }
 
-        // convert the DTO to a database Entity
         Vendor newVendor = VendorMapper.toEntity(request, organization);
+        newVendor.setContactPhone(request.getContactPhone());
         Vendor savedVendor = vendorRepository.save(newVendor);
 
-        // create BankAccount for the vendor
         BankAccount bankAccount = BankAccount.builder()
-                .ownerId(Math.toIntExact(savedVendor.getId()))
+                .vendor(savedVendor)
                 .ownerType(OwnerType.VENDOR)
                 .accountHolderName(request.getAccountHolderName())
                 .accountNumber(request.getAccountNumber())
@@ -73,6 +72,7 @@ public class VendorServiceImpl implements VendorService {
 
         return VendorMapper.toDto(savedVendor, bankAccount);
     }
+
 
     @Override
     @Transactional(readOnly = true)
@@ -87,7 +87,7 @@ public class VendorServiceImpl implements VendorService {
         }
 
         BankAccount bankAccount = bankAccountRepository
-                .findByOwnerIdAndOwnerTypeAndIsPrimaryTrue(vendor.getId(), OwnerType.VENDOR)
+                .findByVendorIdAndIsPrimaryTrue(vendor.getId())
                 .orElse(null); // It's possible a bank account might not exist, though unlikely with current logic
 
         return VendorMapper.toDto(vendor, bankAccount);
@@ -106,7 +106,7 @@ public class VendorServiceImpl implements VendorService {
         return vendorRepository.findByOrganizationId(organizationId).stream()
                 .map(vendor -> {
                     BankAccount bankAccount = bankAccountRepository
-                            .findByOwnerIdAndOwnerTypeAndIsPrimaryTrue(vendor.getId(), OwnerType.VENDOR)
+                            .findByVendorIdAndIsPrimaryTrue(vendor.getId())
                             .orElse(null);
                     return VendorMapper.toDto(vendor, bankAccount);
                 })
@@ -120,18 +120,15 @@ public class VendorServiceImpl implements VendorService {
         Vendor vendor = vendorRepository.findById(vendorId)
                 .orElseThrow(() -> new NotFoundException("Vendor not found with ID: " + vendorId));
 
-        // Security Check
         if (!vendor.getOrganization().getId().equals(currentUser.getOrganizationId())) {
             throw new SecurityException("You are not authorized to update this vendor.");
         }
 
-        // Update vendor details
         VendorMapper.updateEntityFromRequest(vendor, request);
         Vendor savedVendor = vendorRepository.save(vendor);
 
-        // Update associated bank account details
         BankAccount bankAccount = bankAccountRepository
-                .findByOwnerIdAndOwnerTypeAndIsPrimaryTrue(vendor.getId(), OwnerType.VENDOR)
+                .findByVendorIdAndIsPrimaryTrue(vendor.getId())
                 .orElseThrow(() -> new NotFoundException("Primary bank account not found for this vendor. Cannot update details."));
 
         bankAccount.setAccountHolderName(request.getAccountHolderName());
@@ -239,50 +236,3 @@ public class VendorServiceImpl implements VendorService {
                 + "</html>";
     }
 }
-
-//    @Override
-//    @Transactional
-//    public void processVendorPayment(VendorPaymentRequest request) {
-//        User currentUser = getLoggedInUser();
-//        Organization organization = organizationRepository.findById(currentUser.getOrganizationId())
-//                .orElseThrow(() -> new NotFoundException("Organization not found for current user."));
-//
-//        Vendor vendor = vendorRepository.findById(request.getVendorId())
-//                .orElseThrow(() -> new NotFoundException("Vendor not found with ID: " + request.getVendorId()));
-//
-//        if (!vendor.getOrganization().getId().equals(organization.getId())) {
-//            throw new SecurityException("This vendor does not belong to your organization.");
-//        }
-//        if (!vendor.getIsActive()) {
-//            throw new IllegalStateException("Cannot process payment for an inactive vendor.");
-//        }
-//
-//        VendorPayment payment = VendorPayment.builder()
-//                .organization(organization)
-//                .vendor(vendor)
-//                .amount(request.getAmount())
-//                .description(request.getDescription())
-//                .paymentDate(LocalDate.now())
-//                .status(PaymentStatus.PENDING)
-//                .build();
-//        VendorPayment savedPayment = vendorPaymentRepository.save(payment);
-//
-//        try {
-//            String transactionDesc = "Payment to vendor: " + vendor.getVendorName();
-//            Transaction transaction = transactionService.processDebit(organization, request.getAmount(), transactionDesc, TransactionSourceType.VENDOR_PAYMENT, savedPayment.getId());
-//
-//            savedPayment.setStatus(PaymentStatus.PROCESSED);
-//            savedPayment.setTransactionId(transaction.getId());
-//            vendorPaymentRepository.save(savedPayment);
-//
-//            // *** THE CRITICAL CHANGE IS HERE ***
-//            // After successful payment, generate the bill.
-//            billService.generateBillForPayment(savedPayment);
-//
-//        } catch (Exception e) {
-//            savedPayment.setStatus(PaymentStatus.FAILED);
-//            vendorPaymentRepository.save(savedPayment);
-//            throw new RuntimeException("Payment processing failed: " + e.getMessage(), e);
-//        }
-//    }
-//}

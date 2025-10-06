@@ -172,4 +172,6 @@ public class OrganizationController {
 //        List<DocumentResponseDto> savedDocumentsDto = organizationService.uploadVerificationDocuments(id, document1, document2);
 //        return ResponseEntity.status(HttpStatus.CREATED).body(savedDocumentsDto);
 //    }
+
+
 }
