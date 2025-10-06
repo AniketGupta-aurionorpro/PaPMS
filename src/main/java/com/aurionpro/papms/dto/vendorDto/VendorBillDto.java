@@ -19,4 +19,5 @@ public class VendorBillDto {
     private LocalDate billDate;
     private String status;
     private LocalDateTime createdAt;
+    private String organizationName; // ADD THIS LINE
 }

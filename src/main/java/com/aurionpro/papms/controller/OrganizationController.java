@@ -1,14 +1,19 @@
 package com.aurionpro.papms.controller;
 
+import com.aurionpro.papms.Enum.OrganizationStatus;
 import com.aurionpro.papms.dto.*;
 import com.aurionpro.papms.entity.Document;
 import com.aurionpro.papms.entity.Organization;
+import com.aurionpro.papms.repository.OrganizationRepository;
 import com.aurionpro.papms.service.OrganizationService;
 import com.aurionpro.papms.service.OrganizationServiceImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -78,13 +83,21 @@ public class OrganizationController {
     @GetMapping
     @PreAuthorize("hasRole('BANK_ADMIN')")
     @Transactional(readOnly = true)
-    public ResponseEntity<List<OrganizationResponseDto>> getAllOrganizations() {
-        List<Organization> organizations = organizationService.getAllOrganizations();
-        List<OrganizationResponseDto> responseDtos = organizations.stream()
-                .map(OrganizationMapper::toSimpleDto) // without nested collections
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(responseDtos);
+
+    public ResponseEntity<Page<OrganizationResponseDto>> getAllOrganizations(@ParameterObject Pageable pageable) {
+        // The controller calls the service. That's it.
+        Page<OrganizationResponseDto> organizationsPage = organizationService.getAllOrganizations(pageable);
+        return ResponseEntity.ok(organizationsPage);
     }
+//    public ResponseEntity<List<OrganizationResponseDto>> getAllOrganizations() {
+//        List<Organization> organizations = organizationService.getAllOrganizations();
+//        List<OrganizationResponseDto> responseDtos = organizations.stream()
+//                .map(OrganizationMapper::toSimpleDto) // without nested collections
+//                .collect(Collectors.toList());
+//        return ResponseEntity.ok(responseDtos);
+//    }
+
+
 
     // Endpoint to get all pending organizations
     @GetMapping("/pending")

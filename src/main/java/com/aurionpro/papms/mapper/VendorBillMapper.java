@@ -12,9 +12,10 @@ public class VendorBillMapper {
                 .vendorPaymentId(bill.getVendorPayment().getId())
                 .vendorId(bill.getVendor().getId())
                 .vendorName(bill.getVendor().getVendorName())
+                .organizationName(bill.getOrganization().getCompanyName()) // <-- THIS IS THE FIX
                 .amount(bill.getAmount())
                 .billDate(bill.getBillDate())
-                .status("SENT") // Hardcoded: Its existence implies it's sent.
+                .status("PAID") //  sent -/ paid.
                 .createdAt(bill.getCreatedAt())
                 .build();
     }

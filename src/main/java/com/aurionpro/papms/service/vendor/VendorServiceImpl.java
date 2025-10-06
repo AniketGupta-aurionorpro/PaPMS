@@ -15,6 +15,8 @@ import com.aurionpro.papms.mapper.VendorMapper;
 import com.aurionpro.papms.repository.*;
 import com.aurionpro.papms.service.TransactionService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -93,25 +95,48 @@ public class VendorServiceImpl implements VendorService {
         return VendorMapper.toDto(vendor, bankAccount);
     }
 
+
     @Override
     @Transactional(readOnly = true)
-    public List<VendorResponse> getVendorsByOrganization(Integer organizationId) {
+    public Page<VendorResponse> getVendorsByOrganization(Integer organizationId, Pageable pageable) {
         User currentUser = getLoggedInUser();
 
-        // Security Check: Ensure the user is requesting vendors for their own organization
+        // Security Check
         if (!currentUser.getOrganizationId().equals(organizationId)) {
             throw new SecurityException("You can only view vendors for your own organization.");
         }
 
-        return vendorRepository.findByOrganizationId(organizationId).stream()
-                .map(vendor -> {
-                    BankAccount bankAccount = bankAccountRepository
-                            .findByOwnerIdAndOwnerTypeAndIsPrimaryTrue(vendor.getId(), OwnerType.VENDOR)
-                            .orElse(null);
-                    return VendorMapper.toDto(vendor, bankAccount);
-                })
-                .collect(Collectors.toList());
+        // 1. Fetch the paginated list of Vendor entities from the repository
+        Page<Vendor> vendorPage = vendorRepository.findByOrganizationId(organizationId, pageable);
+
+        // 2. Use the .map() function to convert each Vendor in the page to a VendorResponse DTO
+        return vendorPage.map(vendor -> {
+            // This is the same logic you had before, but now it's inside the map function
+            BankAccount bankAccount = bankAccountRepository
+                    .findByOwnerIdAndOwnerTypeAndIsPrimaryTrue(vendor.getId(), OwnerType.VENDOR)
+                    .orElse(null); // Gracefully handle if a bank account doesn't exist
+            return VendorMapper.toDto(vendor, bankAccount);
+        });
     }
+//    @Override
+//    @Transactional(readOnly = true)
+//    public List<VendorResponse> getVendorsByOrganization(Integer organizationId) {
+//        User currentUser = getLoggedInUser();
+//
+//        // Security Check: Ensure the user is requesting vendors for their own organization
+//        if (!currentUser.getOrganizationId().equals(organizationId)) {
+//            throw new SecurityException("You can only view vendors for your own organization.");
+//        }
+//
+//        return vendorRepository.findByOrganizationId(organizationId).stream()
+//                .map(vendor -> {
+//                    BankAccount bankAccount = bankAccountRepository
+//                            .findByOwnerIdAndOwnerTypeAndIsPrimaryTrue(vendor.getId(), OwnerType.VENDOR)
+//                            .orElse(null);
+//                    return VendorMapper.toDto(vendor, bankAccount);
+//                })
+//                .collect(Collectors.toList());
+//    }
 
     @Override
     @Transactional
@@ -201,7 +226,9 @@ public class VendorServiceImpl implements VendorService {
             vendorPaymentRepository.save(savedPayment);
 
             //  Generate a "bill" which acts as a historical record/receipt for this payment.
-            billService.generateBillForPayment(savedPayment);
+            //billService.generateBillForPayment(savedPayment);
+            // MODIFIED: Pass the fully loaded organization and vendor objects
+            billService.generateBillForPayment(savedPayment, organization, vendor);
 
             // Send the email notification to the vendor.
             if (vendor.getContactEmail() != null && !vendor.getContactEmail().isBlank()) {
