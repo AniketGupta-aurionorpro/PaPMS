@@ -18,6 +18,8 @@ import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -91,7 +93,7 @@ public class EmployeeServiceImpl implements EmployeeService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<EmployeeResponseDto> getEmployeesByOrganization(Integer organizationId) {
+    public Page<EmployeeResponseDto> getEmployeesByOrganization(Integer organizationId, Pageable pageable) {
         User currentUser = getLoggedInUser();
 
         if (currentUser.getRole() == Role.ORG_ADMIN && !currentUser.getOrganizationId().equals(organizationId)) {
@@ -101,10 +103,29 @@ public class EmployeeServiceImpl implements EmployeeService {
         organizationRepository.findById(organizationId)
                 .orElseThrow(() -> new NotFoundException("Organization not found with ID: " + organizationId));
 
-        return employeeRepository.findByOrganizationId(organizationId).stream()
-                .map(EmployeeMapper::toDto)
-                .collect(Collectors.toList());
+        // 1. Call the new paginated repository method
+        Page<Employee> employeePage = employeeRepository.findByOrganizationId(organizationId, pageable);
+
+        // 2. Use the .map() function to convert the Page<Employee> to Page<EmployeeResponseDto>
+        return employeePage.map(EmployeeMapper::toDto);
     }
+
+//    @Override
+//    @Transactional(readOnly = true)
+//    public List<EmployeeResponseDto> getEmployeesByOrganization(Integer organizationId) {
+//        User currentUser = getLoggedInUser();
+//
+//        if (currentUser.getRole() == Role.ORG_ADMIN && !currentUser.getOrganizationId().equals(organizationId)) {
+//            throw new SecurityException("You cannot view employees of another organization.");
+//        }
+//
+//        organizationRepository.findById(organizationId)
+//                .orElseThrow(() -> new NotFoundException("Organization not found with ID: " + organizationId));
+//
+//        return employeeRepository.findByOrganizationId(organizationId).stream()
+//                .map(EmployeeMapper::toDto)
+//                .collect(Collectors.toList());
+//    }
 
     @Override
     @Transactional(readOnly = true)

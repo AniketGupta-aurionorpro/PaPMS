@@ -5,6 +5,9 @@ import com.aurionpro.papms.dto.vendorDto.VendorResponse;
 import com.aurionpro.papms.service.vendor.VendorService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -36,10 +39,16 @@ public class VendorController {
 
     @GetMapping("/organization/{id}")
     @PreAuthorize("hasRole('ORG_ADMIN')")
-    public ResponseEntity<List<VendorResponse>> getVendorsByOrganization(@PathVariable Integer id) {
-        List<VendorResponse> vendors = vendorService.getVendorsByOrganization(id);
-        return ResponseEntity.ok(vendors);
+    public ResponseEntity<Page<VendorResponse>> getVendorsByOrganization(
+            @PathVariable("id") Integer id,
+            @ParameterObject Pageable pageable) {
+        Page<VendorResponse> vendorsPage = vendorService.getVendorsByOrganization(id, pageable);
+        return ResponseEntity.ok(vendorsPage);
     }
+//    public ResponseEntity<List<VendorResponse>> getVendorsByOrganization(@PathVariable Integer id) {
+//        List<VendorResponse> vendors = vendorService.getVendorsByOrganization(id);
+//        return ResponseEntity.ok(vendors);
+//    }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ORG_ADMIN')")

@@ -7,6 +7,8 @@ import com.aurionpro.papms.dto.OrganizationRegistrationReq;
 import com.aurionpro.papms.dto.OrganizationResponseDto;
 import com.aurionpro.papms.entity.Document;
 import com.aurionpro.papms.entity.Organization;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -18,7 +20,11 @@ public interface OrganizationService {
 
 //    Organization registerOrganizationWithDocuments(OrganizationRegistrationReq request, MultipartFile document1, MultipartFile document2);
     Organization registerOrganizationWithDocuments(String organizationDataJson, MultipartFile document1, MultipartFile document2);
-    List<Organization> getAllOrganizations(); //bank ad /-
+
+    //List<Organization> getAllOrganizations(); //bank ad /-
+
+    // MODIFIED: Method signature updated for pagination
+    Page<OrganizationResponseDto> getAllOrganizations(Pageable pageable);
 
     List<Organization> getPendingOrganizations();
     

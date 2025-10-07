@@ -6,6 +6,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -42,11 +45,20 @@ public class EmployeeController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ORG_ADMIN', 'BANK_ADMIN')")
-    public ResponseEntity<List<EmployeeResponseDto>> getEmployeesByOrganization(
-            @PathVariable Integer organizationId) {
-        List<EmployeeResponseDto> employees = employeeService.getEmployeesByOrganization(organizationId);
-        return ResponseEntity.ok(employees);
+    public ResponseEntity<Page<EmployeeResponseDto>> getEmployeesByOrganization(
+            @PathVariable Integer organizationId,
+            @ParameterObject Pageable pageable)  { // <-- Spring automatically creates this from URL params
+        Page<EmployeeResponseDto> employeesPage = employeeService.getEmployeesByOrganization(organizationId, pageable);
+        return ResponseEntity.ok(employeesPage);
     }
+
+//    @GetMapping
+//    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'BANK_ADMIN')")
+//    public ResponseEntity<List<EmployeeResponseDto>> getEmployeesByOrganization(
+//            @PathVariable Integer organizationId) {
+//        List<EmployeeResponseDto> employees = employeeService.getEmployeesByOrganization(organizationId);
+//        return ResponseEntity.ok(employees);
+//    }
 
     @GetMapping("/{employeeId}")
     @PreAuthorize("hasAnyRole('ORG_ADMIN', 'BANK_ADMIN')")
