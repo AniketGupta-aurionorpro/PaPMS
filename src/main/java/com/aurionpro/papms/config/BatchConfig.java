@@ -26,17 +26,22 @@ import org.springframework.core.io.FileSystemResource;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.security.crypto.password.PasswordEncoder;
-
+import org.springframework.boot.autoconfigure.batch.BatchProperties;
+import org.springframework.boot.jdbc.DataSourceBuilder;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.autoconfigure.batch.BatchDataSourceScriptDatabaseInitializer;
+import javax.sql.DataSource;
 import jakarta.persistence.EntityManagerFactory;
 
 @Configuration
-@EnableBatchProcessing
+//@EnableBatchProcessing
 @RequiredArgsConstructor
 public class BatchConfig {
 
 
-    private final JobRepository jobRepository;
-    private final PlatformTransactionManager transactionManager;
+//    private final JobRepository jobRepository;
+//    private final PlatformTransactionManager transactionManager;
     private final EntityManagerFactory entityManagerFactory;
 
     // Dependencies for processors and writers
@@ -48,6 +53,11 @@ public class BatchConfig {
     private final com.aurionpro.papms.emails.EmailService emailService;
     private final SalaryStructureRepository salaryStructureRepository;
 
+//    @Bean
+//    BatchDataSourceScriptDatabaseInitializer batchDataSourceInitializer(DataSource dataSource,
+//                                                                        BatchProperties properties) {
+//        return new BatchDataSourceScriptDatabaseInitializer(dataSource, properties.getJdbc());
+//    }
     // 1. Reader: Reads CsvEmployeeRecord objects from the CSV file
 //    @Bean
 //    @StepScope
@@ -133,8 +143,22 @@ public class BatchConfig {
     }
 
     // 5. Step Configuration
+//    @Bean
+//    public Step employeeCsvImportStep(FlatFileItemReader<CsvEmployeeRecord> employeeCsvReader,
+//                                      EmployeeCsvItemProcessor employeeCsvProcessor,
+//                                      EmployeeCsvItemWriter customEmployeeWriter) {
+//
+//        return new StepBuilder("employeeCsvImportStep", jobRepository)
+//                .<CsvEmployeeRecord, Employee>chunk(10, transactionManager)
+//                .reader(employeeCsvReader)
+//                .processor(employeeCsvProcessor)
+//                .writer(customEmployeeWriter)
+//                .build();
+//    }
     @Bean
-    public Step employeeCsvImportStep(FlatFileItemReader<CsvEmployeeRecord> employeeCsvReader,
+    public Step employeeCsvImportStep(JobRepository jobRepository, // <-- Accept here
+                                      PlatformTransactionManager transactionManager, // <-- Accept here
+                                      FlatFileItemReader<CsvEmployeeRecord> employeeCsvReader,
                                       EmployeeCsvItemProcessor employeeCsvProcessor,
                                       EmployeeCsvItemWriter customEmployeeWriter) {
 
@@ -148,8 +172,19 @@ public class BatchConfig {
 
 
     // 6. Job Configuration
+//    @Bean
+//    public Job employeeCsvImportJob(Step employeeCsvImportStep,
+//                                    JobCompletionNotificationListener listener) {
+//
+//        return new JobBuilder("employeeCsvImportJob", jobRepository)
+//                .incrementer(new RunIdIncrementer())
+//                .listener(listener)
+//                .start(employeeCsvImportStep)
+//                .build();
+//    }
     @Bean
-    public Job employeeCsvImportJob(Step employeeCsvImportStep,
+    public Job employeeCsvImportJob(JobRepository jobRepository, // <-- Accept here
+                                    Step employeeCsvImportStep,
                                     JobCompletionNotificationListener listener) {
 
         return new JobBuilder("employeeCsvImportJob", jobRepository)

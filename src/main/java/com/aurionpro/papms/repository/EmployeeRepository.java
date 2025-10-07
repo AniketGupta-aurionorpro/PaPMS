@@ -13,7 +13,7 @@ import java.util.Optional;
 
 public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     Optional<Employee> findByUserId(Long userId);
-    //List<Employee> findByOrganizationId(Integer organizationId);
+    List<Employee> findByOrganizationId(Integer organizationId);
 
     //paginaon ke leye dekhte he
     Page<Employee> findByOrganizationId(Integer organizationId, Pageable pageable);

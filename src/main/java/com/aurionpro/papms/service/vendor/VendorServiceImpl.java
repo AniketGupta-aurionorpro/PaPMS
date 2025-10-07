@@ -105,23 +105,12 @@ public class VendorServiceImpl implements VendorService {
         if (!currentUser.getOrganizationId().equals(organizationId)) {
             throw new SecurityException("You can only view vendors for your own organization.");
         }
-
-        return vendorRepository.findByOrganizationId(organizationId).stream()
-                .map(vendor -> {
-                    BankAccount bankAccount = bankAccountRepository
-                            .findByVendorIdAndIsPrimaryTrue(vendor.getId())
-                            .orElse(null);
-                    return VendorMapper.toDto(vendor, bankAccount);
-                })
-                .collect(Collectors.toList());
-        // 1. Fetch the paginated list of Vendor entities from the repository
         Page<Vendor> vendorPage = vendorRepository.findByOrganizationId(organizationId, pageable);
 
-        // 2. Use the .map() function to convert each Vendor in the page to a VendorResponse DTO
         return vendorPage.map(vendor -> {
             // This is the same logic you had before, but now it's inside the map function
             BankAccount bankAccount = bankAccountRepository
-                    .findByOwnerIdAndOwnerTypeAndIsPrimaryTrue(vendor.getId(), OwnerType.VENDOR)
+                    .findByVendorIdAndIsPrimaryTrue(vendor.getId())
                     .orElse(null); // Gracefully handle if a bank account doesn't exist
             return VendorMapper.toDto(vendor, bankAccount);
         });
