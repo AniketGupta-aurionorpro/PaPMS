@@ -1,6 +1,7 @@
 package com.aurionpro.papms.controller;
 
 import com.aurionpro.papms.dto.*;
+import com.aurionpro.papms.dto.payroll.MyPayslipHistoryDto;
 import com.aurionpro.papms.service.EmployeeService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
@@ -13,6 +14,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import com.aurionpro.papms.service.PayslipPdfService;
+import com.aurionpro.papms.service.PayrollExcelReportService;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import java.io.IOException;
+import com.aurionpro.papms.dto.payroll.PayrollPaymentResponse;
+import com.aurionpro.papms.service.PayrollService;
 
 import java.util.List;
 
@@ -22,6 +30,9 @@ import java.util.List;
 public class EmployeeController {
 
     private final EmployeeService employeeService;
+    private final PayslipPdfService payslipPdfService; // Inject new service
+    private final PayrollExcelReportService payrollExcelReportService;
+    private final PayrollService payrollService;
 
     @PostMapping
     @PreAuthorize("hasRole('ORG_ADMIN')")
@@ -190,4 +201,51 @@ public class EmployeeController {
                     .body("Failed to start the CSV import job: " + e.getMessage());
         }
     }
+
+    @GetMapping("/payslips/{paymentId}/download")
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    @Operation(summary = "Download a salary slip as PDF", description = "Employees can download their own salary slips.")
+    public ResponseEntity<byte[]> downloadPayslip(@PathVariable Integer organizationId, @PathVariable Long paymentId) {
+        byte[] pdfBytes = payslipPdfService.generatePayslip(paymentId);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDispositionFormData("attachment", "payslip-" + paymentId + ".pdf");
+
+        return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
+    }
+
+    @GetMapping("/payrolls/report/excel")
+    @PreAuthorize("hasRole('ORG_ADMIN')")
+    @Operation(summary = "Download a monthly payroll report as Excel")
+    public ResponseEntity<byte[]> downloadPayrollReport(
+            @PathVariable Integer organizationId,
+            @RequestParam int year,
+            @RequestParam int month) throws IOException {
+
+        byte[] excelBytes = payrollExcelReportService.generatePayrollReport(organizationId, year, month);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+        headers.setContentDispositionFormData("attachment", "payroll-report-" + month + "-" + year + ".xlsx");
+
+        return new ResponseEntity<>(excelBytes, headers, HttpStatus.OK);
+    }
+    @GetMapping("/payslips/{paymentId}")
+    @PreAuthorize("hasAnyRole('EMPLOYEE', 'ORG_ADMIN')")
+    @Operation(summary = "Get detailed payslip data", description = "Provides a full salary breakdown for a specific payment. Employees can only access their own.")
+    public ResponseEntity<PayrollPaymentResponse> getPayslipDetails(
+            @PathVariable Integer organizationId,
+            @PathVariable Long paymentId) {
+        PayrollPaymentResponse payslipData = payrollService.getPayrollPaymentDetails(paymentId);
+        return ResponseEntity.ok(payslipData);
+    }
+
+    @GetMapping("/me/payslips")
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    @Operation(summary = "Get my paginated payslip history", description = "Returns a paginated list of all historical payslips for the logged-in employee.")
+    public ResponseEntity<Page<MyPayslipHistoryDto>> getMyPayslipHistory(@ParameterObject Pageable pageable) {
+        return ResponseEntity.ok(payrollService.getMyPayslipHistory(pageable));
+    }
+
 }
