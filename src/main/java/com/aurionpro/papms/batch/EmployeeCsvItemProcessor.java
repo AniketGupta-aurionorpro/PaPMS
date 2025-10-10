@@ -81,6 +81,7 @@ public class EmployeeCsvItemProcessor implements ItemProcessor<CsvEmployeeRecord
                 .email(record.getEmail())
                 .role(Role.EMPLOYEE)
                 .isActive(true)
+                .requiresPasswordChange(true)
                 .build();
 
         Employee employee = Employee.builder()

@@ -68,6 +68,8 @@ public class Employee {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Column(name = "profile_picture_url", length = 512) // ADDED THIS LINE
+    private String profilePictureUrl;
 
     public SalaryStructure getCurrentSalaryStructure() {
         if (salaryStructures == null) return null;

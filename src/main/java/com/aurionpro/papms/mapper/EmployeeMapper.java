@@ -18,6 +18,7 @@ public class EmployeeMapper {
                 .email(request.getEmail())
                 .role(Role.EMPLOYEE)
                 .organizationId(organizationId)
+                .requiresPasswordChange(true)
                 .isActive(true)
                 .build();
     }
@@ -63,6 +64,7 @@ public class EmployeeMapper {
                 .email(request.getEmail())
                 .role(Role.EMPLOYEE)
                 .organizationId(organizationId)
+                .requiresPasswordChange(true)
                 .isActive(true)
                 .build();
     }
@@ -130,6 +132,7 @@ public class EmployeeMapper {
         dto.setJobTitle(employee.getJobTitle());
         dto.setEmployeeActive(employee.getIsActive());
         dto.setCreatedAt(employee.getCreatedAt());
+        dto.setProfilePictureUrl(employee.getProfilePictureUrl());
 
         // Map bank account
         if (employee.getBankAccount() != null) {

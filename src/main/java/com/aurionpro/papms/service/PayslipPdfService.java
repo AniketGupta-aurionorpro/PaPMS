@@ -5,11 +5,12 @@ import com.aurionpro.papms.entity.User;
 import com.aurionpro.papms.exception.NotFoundException;
 import com.aurionpro.papms.repository.AppUserRepository;
 import com.aurionpro.papms.repository.PayrollPaymentRepository;
-import com.itextpdf.kernel.colors.ColorConstants;
+import com.aurionpro.papms.utils.PdfStylingHelper; // NEW IMPORT
 import com.itextpdf.kernel.geom.PageSize;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.layout.Document;
+import com.itextpdf.layout.borders.Border;
 import com.itextpdf.layout.borders.SolidBorder;
 import com.itextpdf.layout.element.Cell;
 import com.itextpdf.layout.element.Paragraph;
@@ -23,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
@@ -39,7 +41,6 @@ public class PayslipPdfService {
         PayrollPayment payment = payrollPaymentRepository.findByIdWithDetails(paymentId)
                 .orElseThrow(() -> new NotFoundException("Payslip data not found for payment ID: " + paymentId));
 
-        // Security check: Employee can only download their own payslip
         if (!payment.getEmployee().getUser().getId().equals(currentUser.getId())) {
             throw new SecurityException("You are not authorized to download this payslip.");
         }
@@ -48,48 +49,49 @@ public class PayslipPdfService {
         PdfWriter writer = new PdfWriter(baos);
         PdfDocument pdf = new PdfDocument(writer);
         Document document = new Document(pdf, PageSize.A4);
-        document.setMargins(36, 36, 36, 36);
+        document.setMargins(36, 36, 50, 36);
 
-        // --- PDF Content ---
-        addHeader(document, payment);
-        addEmployeeDetails(document, payment);
-        addSalaryDetails(document, payment);
-        addFooter(document);
+        try {
+            // Use helper for header with logo
+            LocalDate payrollDate = LocalDate.of(payment.getPayrollBatch().getPayrollYear(), payment.getPayrollBatch().getPayrollMonth(), 1);
+            String monthYear = String.format(Locale.US, "%tB %d", payrollDate, payment.getPayrollBatch().getPayrollYear());
+            PdfStylingHelper.addLogoAndTitle(document, payment.getPayrollBatch().getOrganization(), "PAYSLIP");
+            document.add(new Paragraph("For the month of " + monthYear)
+                    .setTextAlignment(TextAlignment.CENTER).setFontSize(12).setItalic());
+            document.add(new Paragraph("\n"));
 
-        document.close();
+
+            // Use styled cells for employee details
+            addEmployeeDetails(document, payment);
+            addSalaryDetails(document, payment);
+            addFooter(document);
+
+            PdfStylingHelper.addFooter(document);
+
+        } finally {
+            document.close();
+        }
         return baos.toByteArray();
-    }
-
-    private void addHeader(Document document, PayrollPayment payment) {
-        document.add(new Paragraph(payment.getPayrollBatch().getOrganization().getCompanyName())
-                .setTextAlignment(TextAlignment.CENTER).setBold().setFontSize(18));
-        document.add(new Paragraph("Salary Slip")
-                .setTextAlignment(TextAlignment.CENTER).setFontSize(14));
-        String monthYear = String.format(Locale.US, "%tB %d",
-                payment.getPayrollBatch().getPayrollMonth() - 1, payment.getPayrollBatch().getPayrollYear());
-        document.add(new Paragraph("For the month of " + monthYear)
-                .setTextAlignment(TextAlignment.CENTER).setFontSize(14));
-        document.add(new Paragraph("\n"));
     }
 
     private void addEmployeeDetails(Document document, PayrollPayment payment) {
         Table table = new Table(UnitValue.createPercentArray(new float[]{1, 2, 1, 2})).useAllAvailableWidth();
-        table.setBorder(new SolidBorder(ColorConstants.LIGHT_GRAY, 1));
+        table.setBorder(new SolidBorder(PdfStylingHelper.BORDER_COLOR, 1));
 
-        table.addCell(createCell("Employee Name:", true));
-        table.addCell(createCell(payment.getEmployee().getUser().getFullName(), false));
-        table.addCell(createCell("Employee Code:", true));
-        table.addCell(createCell(payment.getEmployee().getEmployeeCode(), false));
+        table.addCell(PdfStylingHelper.createLabelCell("Employee Name"));
+        table.addCell(PdfStylingHelper.createValueCell(payment.getEmployee().getUser().getFullName(), TextAlignment.LEFT));
+        table.addCell(PdfStylingHelper.createLabelCell("Employee Code"));
+        table.addCell(PdfStylingHelper.createValueCell(payment.getEmployee().getEmployeeCode(), TextAlignment.LEFT));
 
-        table.addCell(createCell("Designation:", true));
-        table.addCell(createCell(payment.getEmployee().getJobTitle(), false));
-        table.addCell(createCell("Department:", true));
-        table.addCell(createCell(payment.getEmployee().getDepartment(), false));
+        table.addCell(PdfStylingHelper.createLabelCell("Designation"));
+        table.addCell(PdfStylingHelper.createValueCell(payment.getEmployee().getJobTitle(), TextAlignment.LEFT));
+        table.addCell(PdfStylingHelper.createLabelCell("Department"));
+        table.addCell(PdfStylingHelper.createValueCell(payment.getEmployee().getDepartment(), TextAlignment.LEFT));
 
-        table.addCell(createCell("Date of Joining:", true));
-        table.addCell(createCell(payment.getEmployee().getDateOfJoining().format(DateTimeFormatter.ISO_LOCAL_DATE), false));
-        table.addCell(createCell("Payment Date:", true));
-        table.addCell(createCell(payment.getProcessedAt().format(DateTimeFormatter.ISO_LOCAL_DATE), false));
+        table.addCell(PdfStylingHelper.createLabelCell("Date of Joining"));
+        table.addCell(PdfStylingHelper.createValueCell(payment.getEmployee().getDateOfJoining().format(DateTimeFormatter.ISO_LOCAL_DATE), TextAlignment.LEFT));
+        table.addCell(PdfStylingHelper.createLabelCell("Payment Date"));
+        table.addCell(PdfStylingHelper.createValueCell(payment.getProcessedAt().format(DateTimeFormatter.ISO_LOCAL_DATE), TextAlignment.LEFT));
 
         document.add(table);
         document.add(new Paragraph("\n"));
@@ -98,44 +100,42 @@ public class PayslipPdfService {
     private void addSalaryDetails(Document document, PayrollPayment payment) {
         Table table = new Table(UnitValue.createPercentArray(new float[]{3, 1, 3, 1})).useAllAvailableWidth();
 
-        table.addHeaderCell(createHeaderCell("Earnings"));
-        table.addHeaderCell(createHeaderCell("Amount (INR)"));
-        table.addHeaderCell(createHeaderCell("Deductions"));
-        table.addHeaderCell(createHeaderCell("Amount (INR)"));
+        table.addHeaderCell(PdfStylingHelper.createHeaderCell("Earnings"));
+        table.addHeaderCell(PdfStylingHelper.createHeaderCell("Amount (INR)"));
+        table.addHeaderCell(PdfStylingHelper.createHeaderCell("Deductions"));
+        table.addHeaderCell(PdfStylingHelper.createHeaderCell("Amount (INR)"));
 
         BigDecimal totalEarnings = payment.getBasicSalary().add(payment.getHra()).add(payment.getDa()).add(payment.getOtherAllowances());
         BigDecimal totalDeductions = payment.getPfContribution();
 
-        table.addCell(createCell("Basic Salary", false));
+        // Data rows
+        table.addCell(createDataCell("Basic Salary", false));
         table.addCell(createAmountCell(payment.getBasicSalary()));
-        table.addCell(createCell("Provident Fund (PF)", false));
+        table.addCell(createDataCell("Provident Fund (PF)", false));
         table.addCell(createAmountCell(payment.getPfContribution()));
-
-        table.addCell(createCell("House Rent Allowance (HRA)", false));
+        table.addCell(createDataCell("House Rent Allowance (HRA)", false));
         table.addCell(createAmountCell(payment.getHra()));
-        table.addCell(createCell("", false)); // Empty cell
-        table.addCell(createCell("", false)); // Empty cell
-
-        table.addCell(createCell("Dearness Allowance (DA)", false));
+        table.addCell(createDataCell("", false)); // Empty cell
+        table.addCell(createAmountCell(null)); // Empty cell
+        table.addCell(createDataCell("Dearness Allowance (DA)", false));
         table.addCell(createAmountCell(payment.getDa()));
-        table.addCell(createCell("", false));
-        table.addCell(createCell("", false));
-
-        table.addCell(createCell("Other Allowances", false));
+        table.addCell(createDataCell("", false));
+        table.addCell(createAmountCell(null));
+        table.addCell(createDataCell("Other Allowances", false));
         table.addCell(createAmountCell(payment.getOtherAllowances()));
-        table.addCell(createCell("", false));
-        table.addCell(createCell("", false));
+        table.addCell(createDataCell("", false));
+        table.addCell(createAmountCell(null));
 
-        // Totals
-        table.addCell(createTotalCell("Total Earnings", true));
+        // Totals row
+        table.addCell(createTotalCell("Total Earnings"));
         table.addCell(createTotalAmountCell(totalEarnings));
-        table.addCell(createTotalCell("Total Deductions", true));
+        table.addCell(createTotalCell("Total Deductions"));
         table.addCell(createTotalAmountCell(totalDeductions));
 
         document.add(table);
         document.add(new Paragraph("\n"));
 
-        document.add(new Paragraph("Net Salary: ₹ " + payment.getNetSalaryPaid().toPlainString())
+        document.add(new Paragraph("Net Salary Payable: ₹ " + payment.getNetSalaryPaid().toPlainString())
                 .setTextAlignment(TextAlignment.RIGHT).setBold().setFontSize(14));
     }
 
@@ -145,31 +145,24 @@ public class PayslipPdfService {
                 .setTextAlignment(TextAlignment.CENTER).setFontSize(8).setItalic());
     }
 
-    private Cell createCell(String text, boolean isBold) {
-        Cell cell = new Cell().add(new Paragraph(text)).setPadding(5).setBorder(null);
+    // Helper methods for salary table cells
+    private Cell createDataCell(String text, boolean isBold) {
+        Cell cell = new Cell().add(new Paragraph(text)).setPadding(5).setBorder(Border.NO_BORDER);
         if (isBold) cell.setBold();
         return cell;
     }
-
     private Cell createAmountCell(BigDecimal amount) {
-        return createCell(amount.toPlainString(), false).setTextAlignment(TextAlignment.RIGHT);
+        String text = (amount == null) ? "" : amount.toPlainString();
+        return createDataCell(text, false).setTextAlignment(TextAlignment.RIGHT);
     }
-
-    private Cell createHeaderCell(String text) {
-        return new Cell().add(new Paragraph(text))
-                .setBold().setBackgroundColor(ColorConstants.LIGHT_GRAY)
-                .setTextAlignment(TextAlignment.CENTER).setPadding(5);
-    }
-
-    private Cell createTotalCell(String text, boolean isBold) {
-        Cell cell = createCell(text, isBold);
-        cell.setBorderTop(new SolidBorder(ColorConstants.BLACK, 1));
+    private Cell createTotalCell(String text) {
+        Cell cell = createDataCell(text, true);
+        cell.setBorderTop(new SolidBorder(PdfStylingHelper.BORDER_COLOR, 1));
         return cell;
     }
-
     private Cell createTotalAmountCell(BigDecimal amount) {
         Cell cell = createAmountCell(amount).setBold();
-        cell.setBorderTop(new SolidBorder(ColorConstants.BLACK, 1));
+        cell.setBorderTop(new SolidBorder(PdfStylingHelper.BORDER_COLOR, 1));
         return cell;
     }
 

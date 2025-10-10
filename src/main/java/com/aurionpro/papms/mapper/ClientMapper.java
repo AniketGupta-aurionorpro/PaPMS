@@ -21,6 +21,7 @@ public class ClientMapper {
                 .role(Role.CLIENT)
                 .organizationId(organization.getId())
                 .isActive(true)
+                .requiresPasswordChange(true)
                 .build();
     }
 

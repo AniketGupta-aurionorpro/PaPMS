@@ -248,4 +248,14 @@ public class EmployeeController {
         return ResponseEntity.ok(payrollService.getMyPayslipHistory(pageable));
     }
 
+    @PostMapping(path = "/{employeeId}/profile-picture", consumes = "multipart/form-data")
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'EMPLOYEE')")
+    @Operation(summary = "Upload or replace an employee's profile picture")
+    public ResponseEntity<CompleteEmployeeResponse> uploadProfilePicture(
+            @PathVariable Integer organizationId,
+            @PathVariable Long employeeId,
+            @RequestParam("file") MultipartFile file) {
+        CompleteEmployeeResponse response = employeeService.uploadProfilePicture(organizationId, employeeId, file);
+        return ResponseEntity.ok(response);
+    }
 }

@@ -59,6 +59,12 @@ public class OrganizationServiceImpl implements OrganizationService {
         this.objectMapper = objectMapper;
     }
 
+    // ADDED HELPER METHOD
+    private String sanitizeForFolderName(String name) {
+        if (name == null) return "unknown";
+        return name.toLowerCase().replaceAll("\\s+", "_").replaceAll("[^a-z0-9_.-]", "");
+    }
+
     @Override
     @Transactional
     public Organization registerOrganizationWithDocuments(String organizationDataJson, MultipartFile document1, MultipartFile document2) {
@@ -96,7 +102,8 @@ public class OrganizationServiceImpl implements OrganizationService {
                 .email(request.getEmail())
                 .role(Role.ORG_ADMIN)
                 .organizationId(savedOrganization.getId()) // Link to the new organization
-                .isActive(false) // User is NOT enabled until the organization is approved.
+                .isActive(false)
+                .requiresPasswordChange(true)
                 .build();
         userRepo.save(orgAdminUser);
 
@@ -135,11 +142,12 @@ public class OrganizationServiceImpl implements OrganizationService {
                 .build();
 
         // --- LOGO UPLOAD LOGIC START ---
+        String sanitizedOrgName = sanitizeForFolderName(request.getCompanyName());
         if (logo != null && !logo.isEmpty()) {
             validateIsImage(logo); // Validate the logo file type
 
-            // Upload the logo to Cloudinary
-            String folderName = "organization-logos/" + request.getCompanyName().replaceAll("\\s+", "_").toLowerCase();
+            // Upload the logo to Cloudinary in a structured folder
+            String folderName = "papms/" + sanitizedOrgName + "/logo";
             Map<String, String> uploadResult = cloudinaryService.uploadFile(logo, folderName);
             String logoUrl = uploadResult.get("url");
 
@@ -160,6 +168,7 @@ public class OrganizationServiceImpl implements OrganizationService {
                 .role(Role.ORG_ADMIN)
                 .organizationId(savedOrganization.getId())
                 .isActive(false)
+                .requiresPasswordChange(true)
                 .build();
         userRepo.save(orgAdminUser);
 
@@ -260,7 +269,8 @@ public class OrganizationServiceImpl implements OrganizationService {
 
 
     private void uploadAndLinkDocuments(Organization organization, MultipartFile document1, MultipartFile document2) {
-        String folderName = "organization-verification/" + organization.getCompanyName().replaceAll("\\s+", "_").toLowerCase();
+        String sanitizedOrgName = sanitizeForFolderName(organization.getCompanyName());
+        String folderName = "papms/" + sanitizedOrgName + "/verification_docs";
         List<Document> documentsToSave = new ArrayList<>();
 
         String sanitizedFilename1 = Objects.requireNonNull(document1.getOriginalFilename()).replaceAll("[^a-zA-Z0-9._-]", "");
@@ -390,4 +400,3 @@ public class OrganizationServiceImpl implements OrganizationService {
     }
 
 }
-

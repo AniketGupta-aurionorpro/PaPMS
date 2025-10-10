@@ -14,6 +14,7 @@ public class CompleteEmployeeResponse {
     private String email;
     private String role;
     private boolean isUserEnabled;
+    private String profilePictureUrl;
 
     private Integer organizationId;
     private String organizationName;

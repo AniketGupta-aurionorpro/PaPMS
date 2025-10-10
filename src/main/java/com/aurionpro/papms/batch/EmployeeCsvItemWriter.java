@@ -111,9 +111,10 @@ public class EmployeeCsvItemWriter implements ItemWriter<Employee> {
                 <h3>Hello %s,</h3>
                 <p>Your employee account has been created successfully via bulk upload.</p>
                 <p><b>Username:</b> %s</p>
+                <p>Password:</b> %s </p>
                 <p>Please use the temporary password from the CSV file to log in.</p>
                 <p>We recommend changing your password after first login.</p>
-                """, employee.getUser().getFullName(), employee.getUser().getUsername());
+                """, employee.getUser().getFullName(), employee.getUser().getUsername(), employee.getUser().getPassword());
 
             emailService.sendEmail(organization.getContactEmail(),
                     employee.getUser().getEmail(), subject, body);

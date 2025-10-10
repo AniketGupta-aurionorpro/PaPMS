@@ -412,7 +412,7 @@ public class BatchConfig {
                                       CompositeItemWriter<Employee> compositeEmployeeWriter) {
 
         return new StepBuilder("employeeCsvImportStep", jobRepository)
-                .<CsvEmployeeRecord, Employee>chunk(50, transactionManager) // Increased chunk size for performance
+                .<CsvEmployeeRecord, Employee>chunk(10, transactionManager) // Increased chunk size for performance
                 .reader(employeeCsvReader)
                 .processor(new CompositeItemProcessorBuilder<CsvEmployeeRecord, Employee>()
                         .delegates(employeeCsvProcessor, employeeOrganizationProcessor)

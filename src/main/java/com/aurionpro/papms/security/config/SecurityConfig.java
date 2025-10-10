@@ -72,6 +72,7 @@ public class SecurityConfig {
                         // Public endpoints
                         .requestMatchers(
                                 "/auth/**",
+                                "/auth/login",
                                 "/api/organizations/register",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
@@ -110,7 +111,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/payrolls/*").hasAnyRole("BANK_ADMIN", "ORG_ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/payrolls/*/approve").hasRole("BANK_ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/payrolls/*/reject").hasRole("BANK_ADMIN")
-
+                        .requestMatchers(HttpMethod.POST, "/auth/force-change-password").authenticated()
                         // CATCH-ALL RULE: MUST BE LAST!
                         .anyRequest().authenticated()
                 )
