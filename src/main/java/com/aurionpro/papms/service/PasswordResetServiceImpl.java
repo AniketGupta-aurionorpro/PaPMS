@@ -34,7 +34,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
     @Override
     @Transactional
     public void handleForgotPasswordRequest(ForgotPasswordRequest request) {
-        Optional<User> userOptional = userRepository.findByUsername(request.getEmail());
+        Optional<User> userOptional = userRepository.findByEmail(request.getEmail());
 
         if (userOptional.isEmpty()) {
             // SECURITY: Do not reveal if the user exists.
