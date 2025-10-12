@@ -43,6 +43,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.aurionpro.papms.service.NotificationService;
 
 @Service
 @RequiredArgsConstructor
@@ -56,6 +57,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final SalaryStructureRepository salaryStructureRepository;
     private final BankAccountRepository bankAccountRepository;
     private final CsvEmployeeParser csvEmployeeParser;
+    private final NotificationService notificationService;
     private static final Logger log = LoggerFactory.getLogger(EmployeeServiceImpl.class);
     private final JobLauncher jobLauncher;
     private final Job employeeCsvImportJob;
@@ -365,7 +367,11 @@ public class EmployeeServiceImpl implements EmployeeService {
                 + "<p><b>Employee Code:</b> " + request.getEmployeeCode() + "</p>"
                 + "<p>Please change your password upon first login.</p>";
         emailService.sendEmail(organization.getContactEmail(), request.getEmail(), subject, body);
-
+        String message = String.format("New employee '%s' (%s) was successfully added.",
+                savedEmployee.getUser().getFullName(), savedEmployee.getEmployeeCode());
+        String link = String.format("/organizations/%d/employees/complete/%d",
+                organizationId, savedEmployee.getId());
+        notificationService.createNotification(currentUser, message, link);
         return EmployeeMapper.toCompleteDto(savedEmployee);
     }
 
@@ -920,7 +926,10 @@ public class EmployeeServiceImpl implements EmployeeService {
                     bankAccount.getAccountNumber(),
                     bankAccount.getBankName(),
                     bankAccount.getIfscCode());
-
+            String notificationMessage = String.format("Employee %s has updated their bank account details. Please review.",
+                    employee.getUser().getFullName());
+            String link = String.format("/organizations/%d/employees/complete/%d",
+                    organization.getId(), employee.getId());
             for (User admin : orgAdmins) {
                 emailService.sendEmail("noreply@papms.com", admin.getEmail(), subject, body);
             }
@@ -928,6 +937,7 @@ public class EmployeeServiceImpl implements EmployeeService {
             log.warn("Failed to send bank account change notification", e);
         }
     }
+
 }
 //package com.aurionpro.papms.service;
 //

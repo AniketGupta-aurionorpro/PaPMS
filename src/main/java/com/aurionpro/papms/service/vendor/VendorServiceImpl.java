@@ -24,6 +24,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
+import com.aurionpro.papms.service.NotificationService;
 import com.aurionpro.papms.emails.EmailService;
 
 @Service
@@ -38,6 +39,7 @@ public class VendorServiceImpl implements VendorService {
     private final TransactionService transactionService;
     private final BillService billService;
     private final EmailService emailService;
+    private final NotificationService notificationService;
 
 
     private User getLoggedInUser() {
@@ -71,7 +73,9 @@ public class VendorServiceImpl implements VendorService {
                 .isPrimary(true)
                 .build();
         bankAccountRepository.save(bankAccount);
-
+        String message = String.format("You successfully added a new vendor: %s.", savedVendor.getVendorName());
+        String link = String.format("/vendors/%d", savedVendor.getId()); // Frontend link to the new vendor's details page
+        notificationService.createNotification(currentUser, message, link);
         return VendorMapper.toDto(savedVendor, bankAccount);
     }
 

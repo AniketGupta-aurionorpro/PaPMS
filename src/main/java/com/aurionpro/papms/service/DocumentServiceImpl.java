@@ -7,53 +7,49 @@ import com.aurionpro.papms.entity.Document;
 import com.aurionpro.papms.exception.NotFoundException;
 import com.aurionpro.papms.repository.DocumentRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
 @RequiredArgsConstructor
+@Slf4j
 public class DocumentServiceImpl implements DocumentService {
 
     private final DocumentRepository documentRepository;
 
-    // CHANGED: Method signature updated.
     @Override
     public DocumentResponseDto approveDocument(Integer organizationId, Integer documentId) {
-        // 1. Find the document by its own ID first.
+        log.info("Attempting to approve document ID {} for organization ID {}", documentId, organizationId);
         Document document = findDocumentById(documentId);
-
-        // 2. NEW VALIDATION: Ensure the found document belongs to the correct organization and type.
         validateDocumentOwnership(document, organizationId, documentId);
 
-        // 3. Existing validation: Ensure the document is in a state that can be approved.
         if (document.getStatus() != DocumentStatus.Pending) {
+            log.warn("Approval failed for document {}: Not in PENDING state. Current state: {}", documentId, document.getStatus());
             throw new IllegalStateException("Only pending documents can be approved. Current status: " + document.getStatus());
         }
 
-        // 4. Proceed with approval.
         document.setStatus(DocumentStatus.Approved);
         Document updatedDocument = documentRepository.save(document);
+        log.info("Document {} approved successfully.", documentId);
         return DocumentResponseDto.fromEntity(updatedDocument);
     }
 
-    // CHANGED: Method signature updated.
     @Override
     public DocumentResponseDto rejectDocument(Integer organizationId, Integer documentId) {
-        // 1. Find the document.
+        log.info("Attempting to reject document ID {} for organization ID {}", documentId, organizationId);
         Document document = findDocumentById(documentId);
-
-        // 2. NEW VALIDATION: Ensure ownership.
         validateDocumentOwnership(document, organizationId, documentId);
 
-        // 3. Existing validation: Check status.
         if (document.getStatus() != DocumentStatus.Pending) {
+            log.warn("Rejection failed for document {}: Not in PENDING state. Current state: {}", documentId, document.getStatus());
             throw new IllegalStateException("Only pending documents can be rejected. Current status: " + document.getStatus());
         }
 
-        // 4. Proceed with rejection.
         document.setStatus(DocumentStatus.Rejected);
         Document updatedDocument = documentRepository.save(document);
+        log.info("Document {} rejected successfully.", documentId);
         return DocumentResponseDto.fromEntity(updatedDocument);
     }
 
@@ -62,26 +58,14 @@ public class DocumentServiceImpl implements DocumentService {
                 .orElseThrow(() -> new NotFoundException("Document not found with ID: " + documentId));
     }
 
-    // NEW HELPER METHOD: Contains the reusable validation logic.
-//    private void validateDocumentOwnership(Document document, Integer organizationId, Integer documentId) {
-//        // Check if the document's related entity ID matches the organization ID from the URL.
-//        if (!document.getOrganization().getId().equals(organizationId)) {
-//            throw new IllegalArgumentException("Access Denied: Document with ID " + documentId + " does not belong to organization with ID " + organizationId);
-//        }
-//
-//        // Optional but recommended: Check if this is actually an organization verification document.
-//        if (document.getRelatedEntityType() != DocumentType.ORGANIZATION_VERIFICATION) {
-//            throw new IllegalArgumentException("Invalid Action: Document with ID " + documentId + " is not an organization verification document.");
-//        }
-//    }
     private void validateDocumentOwnership(Document document, Integer organizationId, Integer documentId) {
-        // Check if the document's organization object exists and its ID matches the one from the URL.
         if (document.getOrganization() == null || !document.getOrganization().getId().equals(organizationId)) {
+            log.error("SECURITY ALERT: Attempt to access document {} which does not belong to organization {}", documentId, organizationId);
             throw new IllegalArgumentException("Access Denied: Document with ID " + documentId + " does not belong to organization with ID " + organizationId);
         }
 
-        // Optional but recommended: Check if this is actually an organization verification document.
         if (document.getRelatedEntityType() != DocumentType.ORGANIZATION_VERIFICATION) {
+            log.warn("Invalid action on document {}: Not an organization verification document.", documentId);
             throw new IllegalArgumentException("Invalid Action: Document with ID " + documentId + " is not an organization verification document.");
         }
     }

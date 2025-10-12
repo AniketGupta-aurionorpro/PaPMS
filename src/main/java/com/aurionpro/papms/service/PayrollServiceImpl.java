@@ -15,6 +15,7 @@ import com.aurionpro.papms.repository.PayrollBatchRepository;
 import com.aurionpro.papms.emails.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.aurionpro.papms.service.NotificationService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -41,6 +42,7 @@ public class PayrollServiceImpl implements PayrollService {
     private final AppUserRepository userRepository;
     private final TransactionService transactionService;
     private final EmailService emailService;
+    private final NotificationService notificationService;
     private final PayrollPaymentRepository payrollPaymentRepository;
 
     @Override
@@ -122,7 +124,7 @@ public class PayrollServiceImpl implements PayrollService {
             throw new IllegalStateException("Insufficient funds in organization's account. Required: " +
                     batch.getTotalAmount() + ", Available: " + org.getInternalBalance());
         }
-
+        User orgAdmin = batch.getSubmittedByUser();
         batch.setStatus(PayrollStatus.PROCESSING);
 
         Transaction transaction = transactionService.processDebit(
@@ -153,6 +155,13 @@ public class PayrollServiceImpl implements PayrollService {
         );
 
         log.info("Payroll batch {} approved by bank admin {}", batch.getId(), currentUser.getUsername());
+
+        String notificationMessage = String.format("Your payroll for %d/%d (Batch #%d) has been approved by the bank.",
+                batch.getPayrollMonth(), batch.getPayrollYear(), batch.getId());
+        String notificationLink = String.format("/organization/%d/payrolls/%d",
+                batch.getOrganization().getId(), batch.getId());
+        notificationService.createNotification(orgAdmin, notificationMessage, notificationLink);
+
         return PayrollMapper.toDto(savedBatch);
     }
 

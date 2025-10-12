@@ -1,5 +1,6 @@
 package com.aurionpro.papms.emails;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -11,6 +12,7 @@ import jakarta.mail.internet.MimeMessage;
 import java.util.List;
 
 @Service
+@Slf4j
 public class EmailService {
 
     @Autowired
@@ -18,6 +20,7 @@ public class EmailService {
 
     // Send email with custom from address (for different organizations or the bank)
     public void sendEmail(String from, String to, String subject, String body) {
+        log.info("Preparing to send email from '{}' to '{}' with subject: {}", from, to, subject);
         MimeMessagePreparator messagePreparator = mimeMessage -> {
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true);
             helper.setFrom(from);
@@ -25,11 +28,18 @@ public class EmailService {
             helper.setSubject(subject);
             helper.setText(body, true); // true means HTML content
         };
-        mailSender.send(messagePreparator);
+        try {
+            mailSender.send(messagePreparator);
+            log.info("Email sent successfully to: {}", to);
+        } catch (Exception e) {
+            log.error("Failed to send email to: {}", to, e);
+            // Depending on requirements, you might want to re-throw this as a custom exception
+        }
     }
 
     // Send email to multiple employees (e.g., salary notification)
     public void sendEmailsToMultiple(List<String> toEmails, String from, String subject, String body) {
+        log.info("Preparing to send bulk email to {} recipients with subject: {}", toEmails.size(), subject);
         for (String to : toEmails) {
             sendEmail(from, to, subject, body);
         }

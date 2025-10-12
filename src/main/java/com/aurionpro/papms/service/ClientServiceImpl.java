@@ -12,19 +12,21 @@ import com.aurionpro.papms.mapper.ClientMapper;
 import com.aurionpro.papms.mapper.InvoiceMapper;
 import com.aurionpro.papms.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import com.aurionpro.papms.service.NotificationService;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ClientServiceImpl implements ClientService {
 
     private final AppUserRepository userRepository;
@@ -34,7 +36,7 @@ public class ClientServiceImpl implements ClientService {
     private final PasswordEncoder passwordEncoder;
     private final TransactionService transactionService;
     private final EmailService emailService; // Dependency Injection for EmailService
-
+    private final NotificationService notificationService;
     private User getLoggedInUser() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByUsername(username)
@@ -45,6 +47,7 @@ public class ClientServiceImpl implements ClientService {
     @Transactional
     public ClientResponseDto createClient(ClientRequestDto request) {
         User currentUser = getLoggedInUser();
+        log.info("Attempting to create client '{}' by user '{}' for organization ID {}", request.getCompanyName(), currentUser.getUsername(), currentUser.getOrganizationId());
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new DuplicateUserException("Username '" + request.getUsername() + "' is already taken.");
         }
@@ -60,6 +63,7 @@ public class ClientServiceImpl implements ClientService {
 
         Client newClient = ClientMapper.toClientEntity(request, savedUser, org);
         Client savedClient = clientRepository.save(newClient);
+        log.info("Client with ID {} and User with ID {} created successfully.", savedClient.getId(), savedUser.getId());
 
         // EMAIL INTEGRATION: Send a welcome email to the new client
         String subject = "Welcome to " + org.getCompanyName();
@@ -78,6 +82,7 @@ public class ClientServiceImpl implements ClientService {
     @Transactional
     public InvoiceResponseDto createInvoice(InvoiceRequestDto request) {
         User currentUser = getLoggedInUser();
+        log.info("Attempting to create invoice #{} for client ID {} by user '{}'", request.getInvoiceNumber(), request.getClientId(), currentUser.getUsername());
         Organization org = organizationRepository.findById(currentUser.getOrganizationId())
                 .orElseThrow(() -> new NotFoundException("Organization not found for current user."));
 
@@ -94,6 +99,7 @@ public class ClientServiceImpl implements ClientService {
 
         Invoice newInvoice = InvoiceMapper.toEntity(request, org, client);
         Invoice savedInvoice = invoiceRepository.save(newInvoice);
+        log.info("Invoice with ID {} created successfully.", savedInvoice.getId());
 
         // EMAIL INTEGRATION: Notify the client about the new invoice
         String clientEmail = client.getUser().getEmail();
@@ -112,10 +118,12 @@ public class ClientServiceImpl implements ClientService {
     @Override
     @Transactional
     public String processInvoicePayment(Integer invoiceId) {
+        log.info("Starting payment process for invoice ID: {}", invoiceId);
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new NotFoundException("Invoice not found with ID: " + invoiceId));
 
         if (invoice.getStatus() == InvoiceStatus.PAID) {
+            log.warn("Attempt to pay an already paid invoice ID: {}", invoiceId);
             throw new IllegalStateException("This invoice has already been paid.");
         }
 
@@ -129,10 +137,12 @@ public class ClientServiceImpl implements ClientService {
                 TransactionSourceType.INVOICE,
                 Long.valueOf(invoice.getId())
         );
+        log.info("Credit transaction processed for invoice ID {}. Organization {} balance updated.", invoiceId, organization.getId());
 
         invoice.setStatus(InvoiceStatus.PAID);
         invoice.setPaidAt(LocalDateTime.now());
         invoiceRepository.save(invoice);
+        log.info("Invoice ID {} status updated to PAID.", invoiceId);
 
         // EMAIL 1: Send payment confirmation to the client
         String clientEmail = client.getUser().getEmail();
@@ -150,7 +160,15 @@ public class ClientServiceImpl implements ClientService {
                 + "<p>The organization's internal balance has been updated accordingly.</p>";
         emailService.sendEmail("no-reply@papms.com", orgEmail, orgSubject, orgBody);
 
+        List<User> orgAdmins = userRepository.findByOrganizationIdAndRole(organization.getId(), Role.ORG_ADMIN);
 
+        String notificationMessage = String.format("Payment of ₹%.2f received from %s for Invoice #%s.",
+                invoice.getAmount(), client.getCompanyName(), invoice.getInvoiceNumber());
+        String link = String.format("/invoices/%d", invoice.getId());
+
+        for (User admin : orgAdmins) {
+            notificationService.createNotification(admin, notificationMessage, link);
+        }
         return "Payment for invoice " + invoice.getInvoiceNumber() + " processed successfully.";
     }
 
@@ -181,19 +199,12 @@ public class ClientServiceImpl implements ClientService {
         // 2. Use the .map() function to convert the Page<Client> to Page<ClientResponseDto>
         return clientPage.map(ClientMapper::toDto);
     }
-//    @Override
-//    @Transactional(readOnly = true)
-//    public List<ClientResponseDto> getAllClientsForCurrentOrg() {
-//        User currentUser = getLoggedInUser();
-//        return clientRepository.findByOrganizationId(currentUser.getOrganizationId()).stream()
-//                .map(ClientMapper::toDto)
-//                .collect(Collectors.toList());
-//    }
 
     @Override
     @Transactional
     public ClientResponseDto updateClient(Integer clientId, ClientRequestDto request) {
         User currentUser = getLoggedInUser();
+        log.info("User {} is attempting to update client ID: {}", currentUser.getUsername(), clientId);
         Client client = clientRepository.findById(clientId)
                 .orElseThrow(() -> new NotFoundException("Client not found with ID: " + clientId));
 
@@ -209,7 +220,7 @@ public class ClientServiceImpl implements ClientService {
 
         clientRepository.save(client);
         userRepository.save(user);
-
+        log.info("Client ID {} updated successfully.", clientId);
         return ClientMapper.toDto(client);
     }
 
@@ -217,6 +228,7 @@ public class ClientServiceImpl implements ClientService {
     @Transactional
     public void toggleClientStatus(Integer clientId, boolean isActive) {
         User currentUser = getLoggedInUser();
+        log.info("User {} is attempting to set active status to {} for client ID: {}", currentUser.getUsername(), isActive, clientId);
         Client client = clientRepository.findById(clientId)
                 .orElseThrow(() -> new NotFoundException("Client not found with ID: " + clientId));
 
@@ -228,6 +240,7 @@ public class ClientServiceImpl implements ClientService {
         client.getUser().setIsActive(isActive);
 
         clientRepository.save(client);
+        log.info("Status for client ID {} and associated user set to {}", clientId, isActive);
     }
 
     @Override

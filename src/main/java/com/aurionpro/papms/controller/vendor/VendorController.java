@@ -5,6 +5,7 @@ import com.aurionpro.papms.dto.vendorDto.VendorResponse;
 import com.aurionpro.papms.service.vendor.VendorService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +19,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/vendors")
 @RequiredArgsConstructor
+@Slf4j
 public class VendorController {
 
     private final VendorService vendorService;
@@ -26,14 +28,16 @@ public class VendorController {
     @PreAuthorize("hasRole('ORG_ADMIN')")
     // convert the JSON from the request body into a VendorRequest object
     public ResponseEntity<VendorResponse> createVendor(@Valid @RequestBody VendorRequest vendorRequest) {
-        //VendorResponse DTO is stored in a local variable called newVendor
+        log.info("Request to create a new vendor: {}", vendorRequest.getVendorName());
         VendorResponse newVendor = vendorService.createVendor(vendorRequest);
+        log.info("Successfully created vendor '{}' with ID: {}", newVendor.getVendorName(), newVendor.getId());
         return new ResponseEntity<>(newVendor, HttpStatus.CREATED);
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ORG_ADMIN')")
     public ResponseEntity<VendorResponse> getVendorById(@PathVariable Long id) {
+        log.info("Request to get vendor by ID: {}", id);
         return ResponseEntity.ok(vendorService.getVendorById(id));
     }
 
@@ -42,18 +46,18 @@ public class VendorController {
     public ResponseEntity<Page<VendorResponse>> getVendorsByOrganization(
             @PathVariable("id") Integer id,
             @ParameterObject Pageable pageable) {
+        log.info("Request to get vendors for organization ID {} with pagination {}", id, pageable);
         Page<VendorResponse> vendorsPage = vendorService.getVendorsByOrganization(id, pageable);
+        log.info("Returning {} vendors for organization ID {}", vendorsPage.getTotalElements(), id);
         return ResponseEntity.ok(vendorsPage);
     }
-//    public ResponseEntity<List<VendorResponse>> getVendorsByOrganization(@PathVariable Integer id) {
-//        List<VendorResponse> vendors = vendorService.getVendorsByOrganization(id);
-//        return ResponseEntity.ok(vendors);
-//    }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ORG_ADMIN')")
     public ResponseEntity<VendorResponse> updateVendor(@PathVariable Long id, @Valid @RequestBody VendorRequest vendorRequest) {
+        log.info("Request to update vendor ID: {}", id);
         VendorResponse updatedVendor = vendorService.updateVendor(id, vendorRequest);
+        log.info("Successfully updated vendor ID: {}", id);
         return ResponseEntity.ok(updatedVendor);
     }
 
@@ -61,7 +65,9 @@ public class VendorController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ORG_ADMIN')")
     public ResponseEntity<String> deleteVendor(@PathVariable Long id) {
+        log.info("Request to delete (deactivate) vendor ID: {}", id);
         vendorService.deleteVendor(id);
+        log.info("Successfully deactivated vendor ID: {}", id);
         return ResponseEntity.ok("Vendor deactivated successfully.");
     }
 }
