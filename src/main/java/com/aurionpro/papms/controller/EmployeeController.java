@@ -279,4 +279,27 @@ public class EmployeeController {
         log.info("Successfully uploaded profile picture for employee ID {}. New URL: {}", employeeId, response.getProfilePictureUrl());
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/bulk-upload-template")
+    @PreAuthorize("hasRole('ORG_ADMIN')")
+    @Operation(summary = "Download the CSV template for bulk employee uploads",
+            description = "Provides a CSV file with the required headers and a sample row to guide the user in formatting their bulk upload data correctly.")
+    public ResponseEntity<byte[]> downloadBulkUploadTemplate(@PathVariable Integer organizationId) {
+        log.info("Request to download bulk upload CSV template for organization ID {}", organizationId);
+        try {
+            byte[] csvBytes = employeeService.generateCsvTemplate();
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType("text/csv"));
+            headers.setContentDispositionFormData("attachment", "employee_upload_template.csv");
+
+            log.info("Successfully generated and serving CSV template file.");
+            return new ResponseEntity<>(csvBytes, headers, HttpStatus.OK);
+
+        } catch (IOException e) {
+            log.error("Error generating CSV template for organization ID {}", organizationId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
+
 }

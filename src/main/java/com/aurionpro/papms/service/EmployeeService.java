@@ -9,6 +9,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import com.aurionpro.papms.dto.CompleteEmployeeResponse;
+
+import java.io.IOException;
 import java.util.List;
 
 public interface EmployeeService {
@@ -50,5 +52,5 @@ public interface EmployeeService {
     String launchCsvImportJob(Integer organizationId, MultipartFile file) throws Exception;
     CompleteEmployeeResponse getCompleteEmployeeProfileByUsername(String username);
     CompleteEmployeeResponse uploadProfilePicture(Integer organizationId, Long employeeId, MultipartFile file);
-
+    byte[] generateCsvTemplate() throws IOException;
 }
