@@ -93,8 +93,6 @@ public class TransactionServiceImpl implements TransactionService {
     public Page<TransactionDto> getTransactionsForOrganization(Integer organizationId, Pageable pageable) {
         User currentUser = getLoggedInUser();
 
-        // Security Check: ORG_ADMIN can only view their own organization's transactions.
-        // BANK_ADMIN can view any.
         if (currentUser.getRole() == Role.ORG_ADMIN && !currentUser.getOrganizationId().equals(organizationId)) {
             log.warn("SECURITY ALERT: User {} (ORG_ADMIN) attempted to access transactions for organization {}",
                     currentUser.getUsername(), organizationId);
@@ -105,7 +103,6 @@ public class TransactionServiceImpl implements TransactionService {
         Page<Transaction> transactionPage = transactionRepository
                 .findByOrganizationIdOrderByTransactionDateDesc(organizationId, pageable);
 
-        // Convert the Page<Transaction> to Page<TransactionDto> using the mapper
         return transactionPage.map(TransactionMapper::toDto);
     }
     private User getLoggedInUser() {

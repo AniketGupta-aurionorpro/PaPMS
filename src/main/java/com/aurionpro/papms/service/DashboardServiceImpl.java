@@ -4,10 +4,8 @@ import com.aurionpro.papms.Enum.InvoiceStatus;
 import com.aurionpro.papms.dto.CompleteEmployeeResponse;
 import com.aurionpro.papms.dto.DashboardStatsDto;
 import com.aurionpro.papms.dto.EmployeeDashboardDto;
-import com.aurionpro.papms.entity.Employee;
-import com.aurionpro.papms.entity.Organization;
-import com.aurionpro.papms.entity.PayrollPayment;
-import com.aurionpro.papms.entity.User;
+import com.aurionpro.papms.dto.FinancialSummaryDto;
+import com.aurionpro.papms.entity.*;
 import com.aurionpro.papms.exception.NotFoundException;
 import com.aurionpro.papms.mapper.EmployeeMapper;
 import com.aurionpro.papms.mapper.TransactionMapper;
@@ -135,5 +133,36 @@ public class DashboardServiceImpl implements DashboardService {
         double change = ((double) (newValue - oldValue) / oldValue) * 100;
         // Round to two decimal places
         return new BigDecimal(change).setScale(2, RoundingMode.HALF_UP).doubleValue();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public FinancialSummaryDto getFinancialSummaryForBankAdmin(Integer organizationId) {
+        Organization org = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new NotFoundException("Organization not found with ID: " + organizationId));
+
+        BigDecimal totalCredits = transactionRepository.findTotalCreditsByOrganizationId(organizationId);
+        BigDecimal totalDebits = transactionRepository.findTotalDebitsByOrganizationId(organizationId);
+        long totalTransactions = transactionRepository.countByOrganizationId(organizationId);
+
+        LocalDateTime firstTxDate = transactionRepository.findFirstByOrganizationIdOrderByTransactionDateAsc(organizationId)
+                .map(Transaction::getTransactionDate)
+                .orElse(null);
+
+        LocalDateTime lastTxDate = transactionRepository.findFirstByOrganizationIdOrderByTransactionDateDesc(organizationId)
+                .map(Transaction::getTransactionDate)
+                .orElse(null);
+
+        return FinancialSummaryDto.builder()
+                .organizationId(org.getId())
+                .organizationName(org.getCompanyName())
+                .organizationStatus(org.getStatus().name())
+                .currentBalance(org.getInternalBalance())
+                .totalCredits(totalCredits)
+                .totalDebits(totalDebits)
+                .totalTransactions(totalTransactions)
+                .firstTransactionDate(firstTxDate)
+                .lastTransactionDate(lastTxDate)
+                .build();
     }
 }
