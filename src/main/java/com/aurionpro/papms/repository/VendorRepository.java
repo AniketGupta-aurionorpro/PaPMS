@@ -12,4 +12,6 @@ public interface VendorRepository extends JpaRepository<Vendor, Long> {
     // MODIFIED: This method now supports pagination
     Page<Vendor> findByOrganizationId(Integer organizationId, Pageable pageable);
     boolean existsByVendorNameAndOrganizationId(String vendorName, Integer organizationId);
+    // Add this inside the VendorRepository interface
+    long countByOrganizationIdAndIsActiveTrue(Integer organizationId);
 }

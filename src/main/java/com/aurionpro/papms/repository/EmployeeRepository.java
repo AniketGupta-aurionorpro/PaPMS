@@ -18,7 +18,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     //paginaon ke leye dekhte he
     Page<Employee> findByOrganizationId(Integer organizationId, Pageable pageable);
     boolean existsByOrganizationIdAndEmployeeCode(Integer organizationId, String employeeCode);
-
+    // Add this inside the EmployeeRepository interface
+    long countByOrganizationIdAndIsActiveTrue(Integer organizationId);
     @Query("SELECT e FROM Employee e WHERE e.organization.id = :organizationId AND e.user.username = :username")
     Optional<Employee> findByOrganizationIdAndUsername(@Param("organizationId") Integer organizationId,
                                                        @Param("username") String username);

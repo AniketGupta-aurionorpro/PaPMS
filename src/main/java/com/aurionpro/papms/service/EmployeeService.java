@@ -50,4 +50,5 @@ public interface EmployeeService {
     String launchCsvImportJob(Integer organizationId, MultipartFile file) throws Exception;
     CompleteEmployeeResponse getCompleteEmployeeProfileByUsername(String username);
     CompleteEmployeeResponse uploadProfilePicture(Integer organizationId, Long employeeId, MultipartFile file);
+
 }

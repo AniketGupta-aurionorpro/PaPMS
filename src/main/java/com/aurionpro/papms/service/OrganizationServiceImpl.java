@@ -258,12 +258,13 @@ public class OrganizationServiceImpl implements OrganizationService {
     @Transactional(readOnly = true)
     public OrganizationProfileResponse getProfile(Integer id) {
         return organizationRepository.findById(id)
-                .map(org -> new OrganizationProfileResponse(
-                        org.getId(),
-                        org.getCompanyName(),
-                        org.getLogoUrl(),
-                        org.getContactEmail(), // Use the correct field name
-                        org.getStatus().name()))
+                .map(org -> OrganizationProfileResponse.builder()
+                        .id(org.getId())
+                        .companyName(org.getCompanyName())
+                        .email(org.getContactEmail())   // CORRECT MAPPING
+                        .logoUrl(org.getLogoUrl())       // CORRECT MAPPING
+                        .status(org.getStatus().name())
+                        .build())
                 .orElseThrow(() -> new NotFoundException("Organization not found with ID: " + id));
     }
 

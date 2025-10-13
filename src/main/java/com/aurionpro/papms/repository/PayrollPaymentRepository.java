@@ -20,4 +20,6 @@ public interface PayrollPaymentRepository extends JpaRepository<PayrollPayment, 
     @Query(value = "SELECT pp FROM PayrollPayment pp WHERE pp.employee.id = :employeeId",
             countQuery = "SELECT count(pp) FROM PayrollPayment pp WHERE pp.employee.id = :employeeId")
     Page<PayrollPayment> findByEmployeeIdWithPagination(Long employeeId, Pageable pageable);
+
+    Optional<PayrollPayment> findFirstByEmployeeIdOrderByPayrollBatch_PayrollYearDescPayrollBatch_PayrollMonthDesc(Long employeeId);
 }

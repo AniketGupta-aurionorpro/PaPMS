@@ -1,9 +1,14 @@
 package com.aurionpro.papms.repository;
 
+import com.aurionpro.papms.Enum.InvoiceStatus;
 import com.aurionpro.papms.entity.Invoice;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -34,4 +39,13 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Integer> {
      * @return An Optional containing the invoice if found.
      */
     Optional<Invoice> findByInvoiceNumberAndOrganizationId(String invoiceNumber, Integer organizationId);
+    long countByOrganizationIdAndStatusNot(Integer organizationId, InvoiceStatus status);
+
+    long countByOrganizationIdAndStatusNotAndCreatedAtBefore(Integer organizationId, InvoiceStatus status, LocalDateTime beforeDate);
+
+    @Query("SELECT COALESCE(SUM(i.amount), 0) FROM Invoice i WHERE i.organization.id = :orgId AND i.status = com.aurionpro.papms.Enum.InvoiceStatus.PAID AND i.paidAt >= :startDate")
+    BigDecimal findTotalAmountReceivedSince(@Param("orgId") Integer orgId, @Param("startDate") LocalDateTime startDate);
+
+    @Query("SELECT COALESCE(SUM(i.amount), 0) FROM Invoice i WHERE i.organization.id = :orgId AND i.status != com.aurionpro.papms.Enum.InvoiceStatus.PAID")
+    BigDecimal findTotalAmountDue(@Param("orgId") Integer orgId);
 }

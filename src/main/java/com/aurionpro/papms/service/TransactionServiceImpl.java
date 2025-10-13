@@ -1,14 +1,22 @@
 // service/TransactionServiceImpl.java
 package com.aurionpro.papms.service;
 
+import com.aurionpro.papms.Enum.Role;
 import com.aurionpro.papms.Enum.TransactionSourceType;
 import com.aurionpro.papms.Enum.TransactionType;
+import com.aurionpro.papms.dto.TransactionDto;
 import com.aurionpro.papms.entity.Organization;
 import com.aurionpro.papms.entity.Transaction;
+import com.aurionpro.papms.entity.User;
+import com.aurionpro.papms.mapper.TransactionMapper;
+import com.aurionpro.papms.repository.AppUserRepository;
 import com.aurionpro.papms.repository.OrganizationRepository;
 import com.aurionpro.papms.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j; // ADDED
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
@@ -20,7 +28,7 @@ import java.time.LocalDateTime;
 public class TransactionServiceImpl implements TransactionService {
     private final OrganizationRepository organizationRepository;
     private final TransactionRepository transactionRepository;
-
+    private final AppUserRepository userRepository;
     @Override
     @Transactional
     public Transaction processDebit(Organization organization, BigDecimal amount,
@@ -75,5 +83,31 @@ public class TransactionServiceImpl implements TransactionService {
                 .build();
 
         return transactionRepository.save(transaction);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TransactionDto> getTransactionsForOrganization(Integer organizationId, Pageable pageable) {
+        User currentUser = getLoggedInUser();
+
+        // Security Check: ORG_ADMIN can only view their own organization's transactions.
+        // BANK_ADMIN can view any.
+        if (currentUser.getRole() == Role.ORG_ADMIN && !currentUser.getOrganizationId().equals(organizationId)) {
+            log.warn("SECURITY ALERT: User {} (ORG_ADMIN) attempted to access transactions for organization {}",
+                    currentUser.getUsername(), organizationId);
+            throw new SecurityException("You are not authorized to view transactions for this organization.");
+        }
+
+        log.info("Fetching transactions for organization ID {} with pagination: {}", organizationId, pageable);
+        Page<Transaction> transactionPage = transactionRepository
+                .findByOrganizationIdOrderByTransactionDateDesc(organizationId, pageable);
+
+        // Convert the Page<Transaction> to Page<TransactionDto> using the mapper
+        return transactionPage.map(TransactionMapper::toDto);
+    }
+    private User getLoggedInUser() {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalStateException("Authenticated user not found."));
     }
 }
