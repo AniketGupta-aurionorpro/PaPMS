@@ -148,7 +148,14 @@ public ResponseEntity<Page<OrganizationResponseDto>> getAllOrganizations(
         log.info("Successfully suspended organization ID {}. New status: SUSPENDED", id);
         return ResponseEntity.ok(suspendedOrg);
     }
-
+    @PutMapping("/{id}/reactivate")
+    @PreAuthorize("hasRole('BANK_ADMIN')")
+    public ResponseEntity<OrganizationResponseDto> reactivateOrganization(@PathVariable Integer id) {
+        log.info("Bank Admin request to REACTIVATE organization ID: {}", id);
+        Organization reactivatedOrg = organizationService.reactivateOrganization(id);
+        log.info("Successfully reactivated organization ID {}. New status: ACTIVE", id);
+        return ResponseEntity.ok(OrganizationMapper.toDto(reactivatedOrg));
+    }
     @GetMapping("/{id}/profile")
     @PreAuthorize("hasAnyRole('BANK_ADMIN', 'ORG_ADMIN')")
     public ResponseEntity<OrganizationProfileResponse> getProfile(@PathVariable Integer id) {

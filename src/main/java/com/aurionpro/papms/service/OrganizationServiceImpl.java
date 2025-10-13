@@ -405,4 +405,31 @@ public class OrganizationServiceImpl implements OrganizationService {
         }
     }
 
+    @Override
+    public Organization reactivateOrganization(Integer id) {
+        Organization organization = organizationRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Organization not found with ID: " + id));
+
+        if (organization.getStatus() != OrganizationStatus.SUSPENDED) {
+            throw new IllegalStateException("Only a SUSPENDED organization can be reactivated. Current status is " + organization.getStatus());
+        }
+
+        // Reactivate the organization
+        organization.setStatus(OrganizationStatus.ACTIVE);
+
+        // Reactivate all users associated with this organization
+        List<User> usersToReactivate = userRepo.findByOrganizationId(id);
+        for (User user : usersToReactivate) {
+            user.setIsActive(true);
+        }
+        userRepo.saveAll(usersToReactivate);
+
+        // Send notification email
+        String subject = "Your Organization's Account has been Reactivated";
+        String body = "<h3>Good news! Your " + organization.getCompanyName() + " organization services have been reactivated by the Bank. You can now access the portal as usual.</h3>";
+        emailService.sendEmail("bank-email@example.com", organization.getContactEmail(), subject, body);
+
+        return organizationRepository.save(organization);
+    }
+
 }

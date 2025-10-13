@@ -28,7 +28,7 @@ public interface OrganizationService {
     Page<OrganizationResponseDto> getAllOrganizations(Pageable pageable, OrganizationStatus status);
 
     List<Organization> getPendingOrganizations();
-    
+    Organization reactivateOrganization(Integer id);
     Optional<Organization> getOrganizationById(Integer id);
 
     Optional<Organization> getOrganizationByName(String companyName);
