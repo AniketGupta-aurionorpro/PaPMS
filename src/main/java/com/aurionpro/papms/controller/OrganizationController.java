@@ -72,15 +72,29 @@ public class OrganizationController {
         public MultipartFile logo; // ADD THIS
     }
 
-    @GetMapping
-    @PreAuthorize("hasRole('BANK_ADMIN')")
-    @Transactional(readOnly = true)
-    public ResponseEntity<Page<OrganizationResponseDto>> getAllOrganizations(@ParameterObject Pageable pageable) {
-        log.info("Request to get all organizations with pagination: {}", pageable);
-        Page<OrganizationResponseDto> organizationsPage = organizationService.getAllOrganizations(pageable);
-        log.info("Returning {} organizations on page {}", organizationsPage.getNumberOfElements(), pageable.getPageNumber());
-        return ResponseEntity.ok(organizationsPage);
-    }
+//    @GetMapping
+//    @PreAuthorize("hasRole('BANK_ADMIN')")
+//    @Transactional(readOnly = true)
+//    public ResponseEntity<Page<OrganizationResponseDto>> getAllOrganizations(@ParameterObject Pageable pageable) {
+//        log.info("Request to get all organizations with pagination: {}", pageable);
+//        Page<OrganizationResponseDto> organizationsPage = organizationService.getAllOrganizations(pageable);
+//        log.info("Returning {} organizations on page {}", organizationsPage.getNumberOfElements(), pageable.getPageNumber());
+//        return ResponseEntity.ok(organizationsPage);
+//    }
+@GetMapping
+@PreAuthorize("hasRole('BANK_ADMIN')")
+@Transactional(readOnly = true)
+public ResponseEntity<Page<OrganizationResponseDto>> getAllOrganizations(
+        @ParameterObject Pageable pageable,
+        @RequestParam(required = false) OrganizationStatus status) { // Add this parameter
+    log.info("Request to get organizations with pagination: {} and status filter: {}", pageable, status);
+
+    // Pass the status to the service method
+    Page<OrganizationResponseDto> organizationsPage = organizationService.getAllOrganizations(pageable, status);
+
+    log.info("Returning {} organizations on page {}", organizationsPage.getNumberOfElements(), pageable.getPageNumber());
+    return ResponseEntity.ok(organizationsPage);
+}
 
     @GetMapping("/pending")
     @PreAuthorize("hasRole('BANK_ADMIN')")

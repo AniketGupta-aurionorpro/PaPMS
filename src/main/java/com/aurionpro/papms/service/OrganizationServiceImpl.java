@@ -237,15 +237,15 @@ public class OrganizationServiceImpl implements OrganizationService {
         // STEP 1: Suspend the organization record.
         organization.setStatus(OrganizationStatus.SUSPENDED);
 
-        // STEP 2: Disable all associated user accounts for this organization.
-        List<User> usersToDisable = new ArrayList<>();
-        usersToDisable.addAll(userRepo.findByOrganizationIdAndRole(id, Role.ORG_ADMIN));
-        usersToDisable.addAll(userRepo.findByOrganizationIdAndRole(id, Role.EMPLOYEE));
-
-        for (User user : usersToDisable) {
-            user.setIsActive(false);
-        }
-        userRepo.saveAll(usersToDisable);
+//        // STEP 2: Disable all associated user accounts for this organization.
+//        List<User> usersToDisable = new ArrayList<>();
+//        usersToDisable.addAll(userRepo.findByOrganizationIdAndRole(id, Role.ORG_ADMIN));
+//        usersToDisable.addAll(userRepo.findByOrganizationIdAndRole(id, Role.EMPLOYEE));
+//
+//        for (User user : usersToDisable) {
+//            user.setIsActive(false);
+//        }
+//        userRepo.saveAll(usersToDisable);
 
         String subject = "Your Organization's Account has been Suspended";
         String body = "<h3>Your " + organization.getCompanyName() + " organization services have been suspended by the Bank. Please contact support.</h3>";
@@ -302,13 +302,18 @@ public class OrganizationServiceImpl implements OrganizationService {
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public Page<OrganizationResponseDto> getAllOrganizations(Pageable pageable) {
-        // 1. Call the new paginated repository method to get a page of ACTIVE organizations
-        Page<Organization> organizationPage = organizationRepository.findByStatus(OrganizationStatus.ACTIVE, pageable);
+    public Page<OrganizationResponseDto> getAllOrganizations(Pageable pageable, OrganizationStatus status) {
+        Page<Organization> organizationPage;
 
-        // 2. Map the Page<Organization> to Page<OrganizationResponseDto>
-        // We use toSimpleDto to avoid sending nested employee/document lists in a list view
+        if (status == null) {
+            // If no status is provided, find all organizations
+            organizationPage = organizationRepository.findAll(pageable);
+        } else {
+            // If a status is provided, filter by that status
+            organizationPage = organizationRepository.findByStatus(status, pageable);
+        }
+
+        // The mapping logic remains the same
         return organizationPage.map(OrganizationMapper::toSimpleDto);
     }
 //    @Override

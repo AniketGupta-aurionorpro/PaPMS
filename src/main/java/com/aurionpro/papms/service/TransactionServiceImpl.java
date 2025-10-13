@@ -1,6 +1,7 @@
 // service/TransactionServiceImpl.java
 package com.aurionpro.papms.service;
 
+import com.aurionpro.papms.Enum.OrganizationStatus;
 import com.aurionpro.papms.Enum.Role;
 import com.aurionpro.papms.Enum.TransactionSourceType;
 import com.aurionpro.papms.Enum.TransactionType;
@@ -33,6 +34,7 @@ public class TransactionServiceImpl implements TransactionService {
     @Transactional
     public Transaction processDebit(Organization organization, BigDecimal amount,
                                     String description, TransactionSourceType sourceType, Long sourceId) {
+        validateOrganizationIsActive(organization);
         log.info("Processing DEBIT of {} for organization ID {} [{}]. Source: {}/{}",
                 amount, organization.getId(), organization.getCompanyName(), sourceType, sourceId);
         if (organization.getInternalBalance().compareTo(amount) < 0) {
@@ -64,6 +66,7 @@ public class TransactionServiceImpl implements TransactionService {
     @Transactional
     public Transaction processCredit(Organization organization, BigDecimal amount,
                                      String description, TransactionSourceType sourceType, Long sourceId) {
+        validateOrganizationIsActive(organization);
         log.info("Processing CREDIT of {} for organization ID {} [{}]. Source: {}/{}",
                 amount, organization.getId(), organization.getCompanyName(), sourceType, sourceId);
         BigDecimal newBalance = organization.getInternalBalance().add(amount);
@@ -110,4 +113,12 @@ public class TransactionServiceImpl implements TransactionService {
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalStateException("Authenticated user not found."));
     }
+
+    private void validateOrganizationIsActive(Organization organization) {
+        if (organization.getStatus() != OrganizationStatus.ACTIVE) {
+            log.error("Transaction blocked for non-active organization ID: {}. Status is: {}", organization.getId(), organization.getStatus());
+            throw new IllegalStateException("Transactions are not permitted for organizations with status: " + organization.getStatus());
+        }
+    }
+
 }
