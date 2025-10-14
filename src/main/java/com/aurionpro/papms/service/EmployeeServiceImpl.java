@@ -241,59 +241,76 @@ public class EmployeeServiceImpl implements EmployeeService {
     }
 
 
-    //    @Override
-//    public String launchCsvImportJob(Integer organizationId, MultipartFile file) throws Exception {
-//        // 1. Save the file to a temporary location
-//        Path tempDir = Files.createTempDirectory("csv-import-");
-//        File tempFile = tempDir.resolve(file.getOriginalFilename()).toFile();
-//        Files.copy(file.getInputStream(), tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-//        log.info("CSV file saved temporarily to: {}", tempFile.getAbsolutePath());
+
+//    @Override
+//    public String launchCsvImportJob(Integer organizationId, MultipartFile file) {
+//        try {
+//            // Validate organization exists
+//            Organization organization = organizationRepository.findById(organizationId)
+//                    .orElseThrow(() -> new NotFoundException("Organization not found with ID: " + organizationId));
 //
-//        // 2. Create JobParameters
-//        JobParameters jobParameters = new JobParametersBuilder()
-//                .addString("filePath", tempFile.getAbsolutePath())
-//                .addLong("timestamp", System.currentTimeMillis()) // Ensures a new job instance
-//                .addLong("organizationId", organizationId.longValue()) // Pass organizationId to the job
-//                .toJobParameters();
+//            // Save the file to a temporary location
+//            Path tempDir = Files.createTempDirectory("csv-import-");
+//            String timestamp = String.valueOf(System.currentTimeMillis());
+//            String fileName = "employees_" + timestamp + ".csv";
+//            File tempFile = tempDir.resolve(fileName).toFile();
 //
-//        // 3. Launch the job asynchronously
-//        jobLauncher.run(employeeCsvImportJob, jobParameters);
+//            Files.copy(file.getInputStream(), tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+//            log.info("CSV file saved temporarily to: {}", tempFile.getAbsolutePath());
 //
-//        return "CSV import job started successfully. You will be notified upon completion.";
+//            // Create JobParameters
+//            JobParameters jobParameters = new JobParametersBuilder()
+//                    .addString("filePath", tempFile.getAbsolutePath())
+//                    .addLong("timestamp", System.currentTimeMillis())
+//                    .addLong("organizationId", organizationId.longValue())
+//                    .toJobParameters();
+//
+//            // Launch the job asynchronously
+//            jobLauncher.run(employeeCsvImportJob, jobParameters);
+//
+//            return "CSV import job started successfully. Processing " + organization.getCompanyName() + "'s employee data.";
+//
+//        } catch (Exception e) {
+//            log.error("Failed to start CSV import job for organization {}", organizationId, e);
+//            throw new RuntimeException("Failed to start CSV import job: " + e.getMessage(), e);
+//        }
 //    }
-    @Override
-    public String launchCsvImportJob(Integer organizationId, MultipartFile file) {
-        try {
-            // Validate organization exists
-            Organization organization = organizationRepository.findById(organizationId)
-                    .orElseThrow(() -> new NotFoundException("Organization not found with ID: " + organizationId));
+@Override
+public String launchCsvImportJob(Integer organizationId, MultipartFile file) throws Exception {
+    // 1. Basic validation
+    organizationRepository.findById(organizationId)
+            .orElseThrow(() -> new NotFoundException("Organization not found with ID: " + organizationId));
 
-            // Save the file to a temporary location
-            Path tempDir = Files.createTempDirectory("csv-import-");
-            String timestamp = String.valueOf(System.currentTimeMillis());
-            String fileName = "employees_" + timestamp + ".csv";
-            File tempFile = tempDir.resolve(fileName).toFile();
-
-            Files.copy(file.getInputStream(), tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            log.info("CSV file saved temporarily to: {}", tempFile.getAbsolutePath());
-
-            // Create JobParameters
-            JobParameters jobParameters = new JobParametersBuilder()
-                    .addString("filePath", tempFile.getAbsolutePath())
-                    .addLong("timestamp", System.currentTimeMillis())
-                    .addLong("organizationId", organizationId.longValue())
-                    .toJobParameters();
-
-            // Launch the job asynchronously
-            jobLauncher.run(employeeCsvImportJob, jobParameters);
-
-            return "CSV import job started successfully. Processing " + organization.getCompanyName() + "'s employee data.";
-
-        } catch (Exception e) {
-            log.error("Failed to start CSV import job for organization {}", organizationId, e);
-            throw new RuntimeException("Failed to start CSV import job: " + e.getMessage(), e);
-        }
+    if (file.isEmpty()) {
+        throw new IllegalArgumentException("Cannot process an empty file.");
     }
+
+    // 2. Save the file to a temporary, unique location to avoid conflicts
+    Path tempDir = Files.createTempDirectory("papms-csv-import-");
+    File tempFile = tempDir.resolve(
+            System.currentTimeMillis() + "_" + file.getOriginalFilename()
+    ).toFile();
+
+    try {
+        file.transferTo(tempFile);
+        log.info("CSV file for organization {} saved temporarily to: {}", organizationId, tempFile.getAbsolutePath());
+    } catch (IOException e) {
+        log.error("Failed to save temporary file for batch processing", e);
+        throw new RuntimeException("Could not save uploaded file for processing.", e);
+    }
+
+    // 3. Create JobParameters to pass file path and organizationId to the job
+    JobParameters jobParameters = new JobParametersBuilder()
+            .addString("filePath", tempFile.getAbsolutePath())
+            .addLong("timestamp", System.currentTimeMillis()) // Ensures a new job instance is created every time
+            .addLong("organizationId", organizationId.longValue())
+            .toJobParameters();
+
+    // 4. Launch the job asynchronously
+    jobLauncher.run(employeeCsvImportJob, jobParameters);
+
+    return "CSV import job started successfully. You will be notified upon completion.";
+}
 
     @Override
     public EmployeeResponseDto getEmployeeById(Long id) {

@@ -197,8 +197,7 @@ public class EmployeeController {
         log.info("Status for employee ID {} set to {}", employeeId, active);
         return ResponseEntity.ok(response);
     }
-
-    @PostMapping(path = "/bulk-upload-batch", consumes = "multipart/form-data") // New endpoint name
+    @PostMapping(path = "/bulk-upload-batch", consumes = "multipart/form-data")
     @PreAuthorize("hasRole('ORG_ADMIN')")
     @Operation(summary = "Bulk upload employees via CSV using asynchronous Batch Processing")
     public ResponseEntity<String> bulkUploadEmployeesBatch(
@@ -208,13 +207,31 @@ public class EmployeeController {
         try {
             String responseMessage = employeeService.launchCsvImportJob(organizationId, file);
             log.info("Batch job for organization ID {} launched successfully.", organizationId);
-            return ResponseEntity.accepted().body(responseMessage); // Return 202 Accepted
+            // Return 202 Accepted, indicating the request is accepted for processing
+            return ResponseEntity.accepted().body(responseMessage);
         } catch (Exception e) {
             log.error("Failed to LAUNCH the CSV import job for organization ID {}", organizationId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to start the CSV import job: " + e.getMessage());
         }
     }
+//    @PostMapping(path = "/bulk-upload-batch", consumes = "multipart/form-data") // New endpoint name
+//    @PreAuthorize("hasRole('ORG_ADMIN')")
+//    @Operation(summary = "Bulk upload employees via CSV using asynchronous Batch Processing")
+//    public ResponseEntity<String> bulkUploadEmployeesBatch(
+//            @PathVariable Integer organizationId,
+//            @RequestParam("file") MultipartFile file) {
+//        log.info("Request to launch asynchronous batch import job for organization ID {}", organizationId);
+//        try {
+//            String responseMessage = employeeService.launchCsvImportJob(organizationId, file);
+//            log.info("Batch job for organization ID {} launched successfully.", organizationId);
+//            return ResponseEntity.accepted().body(responseMessage); // Return 202 Accepted
+//        } catch (Exception e) {
+//            log.error("Failed to LAUNCH the CSV import job for organization ID {}", organizationId, e);
+//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+//                    .body("Failed to start the CSV import job: " + e.getMessage());
+//        }
+//    }
 
     @GetMapping("/payslips/{paymentId}/download")
     @PreAuthorize("hasRole('EMPLOYEE')")

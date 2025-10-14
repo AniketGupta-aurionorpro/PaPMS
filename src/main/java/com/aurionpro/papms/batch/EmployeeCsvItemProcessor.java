@@ -13,8 +13,8 @@ import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.annotation.BeforeStep;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Component; // Add this
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -28,9 +28,9 @@ public class EmployeeCsvItemProcessor implements ItemProcessor<CsvEmployeeRecord
     private final BankAccountRepository bankAccountRepository;
     private final PasswordEncoder passwordEncoder;
 
-    // In-memory sets for fast lookups
-    private Set<String> existingUsernames = new HashSet<>();
-    private Set<String> existingAccountNumbers = new HashSet<>();
+    // In-memory sets for fast lookups. Use synchronized sets for multi-threading.
+    private Set<String> existingUsernames = Collections.synchronizedSet(new HashSet<>());
+    private Set<String> existingAccountNumbers = Collections.synchronizedSet(new HashSet<>());
 
     /**
      * This method is executed by Spring Batch BEFORE the step starts.
@@ -41,14 +41,16 @@ public class EmployeeCsvItemProcessor implements ItemProcessor<CsvEmployeeRecord
         log.info("Pre-loading existing usernames and account numbers for validation.");
 
         // Fetch all usernames from the DB in one query
-        existingUsernames = appUserRepository.findAll().stream()
+        Set<String> dbUsernames = appUserRepository.findAll().stream()
                 .map(User::getUsername)
                 .collect(Collectors.toSet());
+        existingUsernames.addAll(dbUsernames);
 
         // Fetch all account numbers from the DB in one query
-        existingAccountNumbers = bankAccountRepository.findAll().stream()
+        Set<String> dbAccountNumbers = bankAccountRepository.findAll().stream()
                 .map(BankAccount::getAccountNumber)
                 .collect(Collectors.toSet());
+        existingAccountNumbers.addAll(dbAccountNumbers);
 
         log.info("Pre-loading complete. Found {} usernames and {} account numbers.", existingUsernames.size(), existingAccountNumbers.size());
     }
@@ -56,24 +58,19 @@ public class EmployeeCsvItemProcessor implements ItemProcessor<CsvEmployeeRecord
     @Override
     public Employee process(CsvEmployeeRecord record) throws Exception {
         // --- EFFICIENT VALIDATION LOGIC ---
-        if (existingUsernames.contains(record.getUsername())) {
+        // The add() method returns false if the element is already in the set.
+        // This atomically checks for duplicates in the DB *and* within the file itself.
+        if (!existingUsernames.add(record.getUsername())) {
             log.warn("Skipping record. Username already exists: {}", record.getUsername());
-            // Add the username to the set so we can also detect duplicates within the SAME file
-            return null;
+            return null; // Returning null skips writing this item
         }
 
-        if (existingAccountNumbers.contains(record.getAccountNumber())) {
+        if (!existingAccountNumbers.add(record.getAccountNumber())) {
             log.warn("Skipping record. Bank account number already exists: {}", record.getAccountNumber());
             return null;
         }
 
-        // Add to sets to handle duplicates within the file itself
-        existingUsernames.add(record.getUsername());
-        existingAccountNumbers.add(record.getAccountNumber());
-
-
-        // --- TRANSFORMATION LOGIC (remains the same) ---
-        // ... (rest of your process method)
+        // --- TRANSFORMATION LOGIC ---
         User user = User.builder()
                 .username(record.getUsername())
                 .password(passwordEncoder.encode(record.getPassword()))
@@ -119,92 +116,3 @@ public class EmployeeCsvItemProcessor implements ItemProcessor<CsvEmployeeRecord
         return employee;
     }
 }
-//// batch/EmployeeCsvItemProcessor.java
-//
-//package com.aurionpro.papms.batch;
-//
-//import com.aurionpro.papms.Enum.OwnerType;
-//import com.aurionpro.papms.Enum.Role;
-//import com.aurionpro.papms.dto.CsvEmployeeRecord;
-//import com.aurionpro.papms.entity.*;
-//import com.aurionpro.papms.repository.AppUserRepository;
-//import com.aurionpro.papms.repository.BankAccountRepository;
-//import lombok.RequiredArgsConstructor;
-//import lombok.extern.slf4j.Slf4j;
-//import org.springframework.batch.item.ItemProcessor;
-//import org.springframework.security.crypto.password.PasswordEncoder;
-//
-//import java.util.List;
-//
-//@Slf4j
-//@RequiredArgsConstructor // Use this for clean constructor injection
-//public class EmployeeCsvItemProcessor implements ItemProcessor<CsvEmployeeRecord, Employee> {
-//
-//    // Dependencies will be final and injected by the constructor
-//    private final AppUserRepository appUserRepository;
-//    private final BankAccountRepository bankAccountRepository;
-//    private final PasswordEncoder passwordEncoder;
-//
-//    @Override
-//    public Employee process(CsvEmployeeRecord record) throws Exception {
-//        // --- VALIDATION LOGIC ---
-//        if (appUserRepository.existsByUsername(record.getUsername())) {
-//            log.warn("Skipping record. Username already exists: {}", record.getUsername());
-//            return null; // Returning null skips the item
-//        }
-//
-//        if (bankAccountRepository.existsByAccountNumber(record.getAccountNumber())) {
-//            log.warn("Skipping record. Bank account number already exists: {}", record.getAccountNumber());
-//            return null;
-//        }
-//
-//        // --- TRANSFORMATION LOGIC ---
-//        // 1. Create User
-//        User user = User.builder()
-//                .username(record.getUsername())
-//                .password(passwordEncoder.encode(record.getPassword()))
-//                .fullName(record.getFullName())
-//                .email(record.getEmail())
-//                .role(Role.EMPLOYEE)
-//                .isActive(true)
-//                // organizationId will be set in the writer
-//                .build();
-//
-//        // 2. Create Employee and link User
-//        Employee employee = Employee.builder()
-//                .user(user)
-//                .employeeCode(record.getEmployeeCode())
-//                .dateOfJoining(record.getDateOfJoining())
-//                .department(record.getDepartment())
-//                .jobTitle(record.getJobTitle())
-//                .isActive(true)
-//                .build();
-//
-//        // 3. Create Bank Account and link Employee
-//        BankAccount bankAccount = BankAccount.builder()
-//                .employee(employee)
-//                .ownerType(OwnerType.EMPLOYEE)
-//                .accountHolderName(record.getAccountHolderName())
-//                .accountNumber(record.getAccountNumber())
-//                .bankName(record.getBankName())
-//                .ifscCode(record.getIfscCode())
-//                .isPrimary(true)
-//                .build();
-//        employee.setBankAccount(bankAccount);
-//
-//        // 4. Create Salary Structure and link Employee
-//        SalaryStructure salaryStructure = SalaryStructure.builder()
-//                .employee(employee)
-//                .basicSalary(record.getBasicSalary())
-//                .hra(record.getHra())
-//                .da(record.getDa())
-//                .pfContribution(record.getPfContribution())
-//                .otherAllowances(record.getOtherAllowances())
-//                .effectiveFromDate(record.getEffectiveFromDate())
-//                .isActive(true)
-//                .build();
-//        employee.setSalaryStructures(List.of(salaryStructure));
-//
-//        return employee;
-//    }
-//}

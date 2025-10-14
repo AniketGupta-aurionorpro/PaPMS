@@ -16,8 +16,11 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
     public void afterJob(JobExecution jobExecution) {
         if (jobExecution.getStatus() == BatchStatus.COMPLETED) {
             log.info("!!! EMPLOYEE IMPORT JOB FINISHED! Time to verify the results.");
+            // TODO: Add notification logic here (e.g., using NotificationService)
+            // to inform the user that their upload is complete.
         } else if (jobExecution.getStatus() == BatchStatus.FAILED) {
             log.error("!!! EMPLOYEE IMPORT JOB FAILED! Check logs for details.");
+            // TODO: Notify the user about the failure.
         }
 
         // Cleanup the temporary file
