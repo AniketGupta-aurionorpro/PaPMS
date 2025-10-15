@@ -45,11 +45,13 @@ public class OrganizationServiceImpl implements OrganizationService {
     private final CloudinaryService cloudinaryService;
     private final DocumentRepository documentRepository;
     private final ObjectMapper objectMapper;
+    private final NotificationService notificationService;
 
     public OrganizationServiceImpl(OrganizationRepository organizationRepository,
                                    PasswordEncoder passwordEncoder, AppUserRepository userRepo,
                                    EmailService emailService, CloudinaryService cloudinaryService,
-                                   DocumentRepository documentRepository, ObjectMapper objectMapper) {
+                                   DocumentRepository documentRepository, ObjectMapper objectMapper,
+                                   NotificationService notificationService) {
         this.organizationRepository = organizationRepository;
         this.passwordEncoder = passwordEncoder;
         this.userRepo = userRepo;
@@ -57,6 +59,7 @@ public class OrganizationServiceImpl implements OrganizationService {
         this.cloudinaryService = cloudinaryService;
         this.documentRepository = documentRepository;
         this.objectMapper = objectMapper;
+        this.notificationService = notificationService;
     }
 
     // ADDED HELPER METHOD
@@ -109,7 +112,12 @@ public class OrganizationServiceImpl implements OrganizationService {
 
         // STEP 3: Upload documents and link them to the organization.
         uploadAndLinkDocuments(savedOrganization, document1, document2);
-
+        List<User> bankAdmins = userRepo.findByOrganizationIdAndRole(null, Role.BANK_ADMIN);
+        String message = String.format("New organization '%s' has registered and requires approval.", savedOrganization.getCompanyName());
+        String link = String.format("/admin/organizations/%d", savedOrganization.getId());
+        for (User admin : bankAdmins) {
+            notificationService.createNotification(admin, message, link);
+        }
         return savedOrganization;
     }
 
@@ -216,6 +224,10 @@ public class OrganizationServiceImpl implements OrganizationService {
             newAccountNumber = generateUniqueAccountNumber();
         } while (organizationRepository.findByBankAssignedAccountNumber(newAccountNumber).isPresent());
         organization.setBankAssignedAccountNumber(newAccountNumber);
+
+        String message = String.format("Welcome! Your organization, '%s', has been approved. You can now access your dashboard.", organization.getCompanyName());
+        String link = "/dashboard";
+        notificationService.createNotification(orgAdmin, message, link);
 
         // Send notification email
         String subject = "Your Organization Registration is Approved";

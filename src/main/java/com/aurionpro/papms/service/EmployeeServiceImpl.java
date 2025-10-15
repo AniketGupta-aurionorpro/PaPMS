@@ -720,7 +720,9 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
 
         // Organization admin can update any employee in their organization
         validateOrganizationAccess(currentUser, organizationId, employee);
-
+        String message = "An administrator has updated your profile details. Please review the changes.";
+        String link = "/profile";
+        notificationService.createNotification(employee.getUser(), message, link);
         return updateEmployeeCommon(employee, request, true);
     }
 
@@ -784,7 +786,11 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
         log.info("Salary updated for employee {} by admin {}. Reason: {}",
                 employeeId, currentUser.getUsername(), request.getChangeReason());
 
-        // Refresh employee with new salary structure
+        String message = String.format("Your salary structure has been updated, effective from %s.", request.getEffectiveFromDate());
+        String link = "/profile/salary"; // Direct link to salary details
+        notificationService.createNotification(employee.getUser(), message, link);
+
+        // Refresh employee with a new salary structure
         Employee updatedEmployee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new NotFoundException("Employee not found"));
 
@@ -823,6 +829,10 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
         appUserRepository.save(user);
 
         log.info("Password changed for employee {}", employeeId);
+
+        String message = "Your password was changed successfully.";
+        String link = "/profile/security";
+        notificationService.createNotification(user, message, link);
 
         // Send notification email
         try {
