@@ -43,6 +43,13 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         }
 
         User user = userOptional.get();
+
+        // --- MODIFICATION START ---
+        // If a token already exists for this user (expired or not), delete it.
+        // This prevents conflicts and ensures a user can always request a new reset.
+        tokenRepository.deleteByUser(user);
+        // --- MODIFICATION END ---
+
         String token = UUID.randomUUID().toString();
         PasswordResetToken resetToken = new PasswordResetToken(token, user);
         tokenRepository.save(resetToken);

@@ -1,6 +1,7 @@
 package com.aurionpro.papms.repository;
 
 import com.aurionpro.papms.entity.PasswordResetToken;
+import com.aurionpro.papms.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -13,4 +14,5 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
     Optional<PasswordResetToken> findByToken(String token);
 
     void deleteAllByExpiryDateBefore(LocalDateTime now);
+    void deleteByUser(User user);
 }
