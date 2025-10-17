@@ -45,16 +45,20 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         User user = userOptional.get();
 
         // --- MODIFICATION START ---
-        // If a token already exists for this user (expired or not), delete it.
-        // This prevents conflicts and ensures a user can always request a new reset.
+        // **THIS IS THE FIX:**
+        // Before creating a new token, delete any old one that might exist for this user.
+        // This resolves the conflict and ensures a new link can always be generated.
         tokenRepository.deleteByUser(user);
+        log.info("Cleared any existing password reset tokens for user: {}", user.getUsername());
         // --- MODIFICATION END ---
 
         String token = UUID.randomUUID().toString();
         PasswordResetToken resetToken = new PasswordResetToken(token, user);
         tokenRepository.save(resetToken);
 
-        String resetLink = frontendUrl + "/reset-password?token=" + token;
+        // --- UPDATE THE FRONTEND URL IN THE LINK ---
+        // Change this from 'http://localhost:8080' to your Angular app's URL
+        String resetLink = "http://localhost:4200" + "/auth/reset-password?token=" + token;
 
         sendPasswordResetEmail(user, resetLink);
         log.info("Password reset link sent to email: {}", user.getEmail());
