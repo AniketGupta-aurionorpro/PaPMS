@@ -46,5 +46,6 @@ public interface OrganizationRepository extends JpaRepository<Organization, Inte
             "ORDER BY YEAR(o.createdAt), MONTH(o.createdAt) ASC")
     List<Map<String, Object>> getMonthlyOrganizationGrowthSince(@Param("startDate") LocalDateTime startDate);
 
+    long countByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
 
 }

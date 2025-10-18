@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
@@ -31,4 +32,11 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     Optional<Transaction> findFirstByOrganizationIdOrderByTransactionDateAsc(Integer organizationId);
 
     Optional<Transaction> findFirstByOrganizationIdOrderByTransactionDateDesc(Integer organizationId);
+
+    @Query("SELECT new map(YEAR(t.transactionDate) as year, MONTH(t.transactionDate) as month, sum(t.amount) as totalVolume) " +
+            "FROM Transaction t " +
+            "WHERE t.transactionDate >= :startDate " +
+            "GROUP BY YEAR(t.transactionDate), MONTH(t.transactionDate) " +
+            "ORDER BY YEAR(t.transactionDate), MONTH(t.transactionDate) ASC")
+    List<Map<String, Object>> getMonthlyTransactionVolumeSince(@Param("startDate") LocalDateTime startDate);
 }

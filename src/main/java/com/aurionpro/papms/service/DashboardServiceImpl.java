@@ -22,6 +22,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -167,20 +168,38 @@ public class DashboardServiceImpl implements DashboardService {
                 .build();
     }
 
+
+    private double calculatePercentageChange(double previous, double current) {
+        if (previous == 0) {
+            return current > 0 ? 100.0 : 0.0;
+        }
+        double change = ((current - previous) / previous) * 100;
+        return new BigDecimal(change).setScale(2, RoundingMode.HALF_UP).doubleValue();
+    }
+
     @Override
     @Transactional(readOnly = true)
     public BankAdminDashboardStatsDto getBankAdminDashboardStats() {
+        // --- DATA FETCHING ---
         long total = organizationRepository.count();
         long active = organizationRepository.countByStatus(OrganizationStatus.ACTIVE);
         long pending = organizationRepository.countByStatus(OrganizationStatus.PENDING_APPROVAL);
         long suspended = organizationRepository.countByStatus(OrganizationStatus.SUSPENDED);
 
         LocalDateTime twelveMonthsAgo = LocalDateTime.now().minusMonths(11).withDayOfMonth(1).toLocalDate().atStartOfDay();
+        LocalDateTime thisMonthStart = LocalDateTime.now().withDayOfMonth(1).truncatedTo(ChronoUnit.DAYS);
+        LocalDateTime prevMonthStart = thisMonthStart.minusMonths(1);
+
+        long totalOrganizationsBeforeThisMonth = organizationRepository.countByCreatedAtBetween(prevMonthStart, thisMonthStart);
+        long newOrganizationsThisMonth = organizationRepository.countByCreatedAtBetween(thisMonthStart, LocalDateTime.now());
+        long totalAtStartOfMonth = total - newOrganizationsThisMonth;
+
+        // --- CHART DATA (Existing + Modified) ---
         List<Map<String, Object>> growthDataRaw = organizationRepository.getMonthlyOrganizationGrowthSince(twelveMonthsAgo);
 
+        // --- MAPPING LOGIC FOR GROWTH CHART ---
         List<BankAdminDashboardStatsDto.OrganizationGrowthDataPoint> growthData = growthDataRaw.stream()
                 .map(row -> {
-                    // FIX: Cast to Number first, then get the integer value.
                     Integer year = ((Number) row.get("year")).intValue();
                     Integer month = ((Number) row.get("month")).intValue();
                     String monthName = Month.of(month).name().substring(0, 3);
@@ -191,12 +210,52 @@ public class DashboardServiceImpl implements DashboardService {
                 })
                 .collect(Collectors.toList());
 
+        List<Map<String, Object>> volumeDataRaw = transactionRepository.getMonthlyTransactionVolumeSince(twelveMonthsAgo);
+
+        // --- MAPPING LOGIC FOR VOLUME CHART ---
+        List<BankAdminDashboardStatsDto.TransactionVolumeDataPoint> volumeData = volumeDataRaw.stream()
+                .map(row -> {
+                    Integer year = ((Number) row.get("year")).intValue();
+                    Integer month = ((Number) row.get("month")).intValue();
+                    String monthName = Month.of(month).name().substring(0, 3);
+                    BigDecimal totalVolume = new BigDecimal(row.get("totalVolume").toString());
+                    return BankAdminDashboardStatsDto.TransactionVolumeDataPoint.builder()
+                            .name(monthName + " " + year)
+                            .value(totalVolume)
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        // --- CHART PERCENTAGE CALCULATIONS (NEW) ---
+        double monthlyGrowthPercentage = 0.0;
+        if (growthData.size() >= 2) {
+            double lastMonthCount = growthData.get(growthData.size() - 2).getValue();
+            double thisMonthCount = growthData.get(growthData.size() - 1).getValue();
+            monthlyGrowthPercentage = calculatePercentageChange(lastMonthCount, thisMonthCount);
+        } else if (growthData.size() == 1) {
+            monthlyGrowthPercentage = 100.0;
+        }
+
+        double monthlyVolumePercentage = 0.0;
+        if (volumeData.size() >= 2) {
+            double lastMonthVolume = volumeData.get(volumeData.size() - 2).getValue().doubleValue();
+            double thisMonthVolume = volumeData.get(volumeData.size() - 1).getValue().doubleValue();
+            monthlyVolumePercentage = calculatePercentageChange(lastMonthVolume, thisMonthVolume);
+        } else if (volumeData.size() == 1) {
+            monthlyVolumePercentage = 100.0;
+        }
+
         return BankAdminDashboardStatsDto.builder()
                 .totalOrganizations(total)
+                .organizationGrowthPercentage(calculatePercentageChange(totalAtStartOfMonth, total)) // Dynamic percentage
                 .activeOrganizations(active)
                 .pendingOrganizations(pending)
                 .suspendedOrganizations(suspended)
                 .organizationGrowth(growthData)
+                .transactionVolume(volumeData)
+                .monthlyOrganizationGrowthPercentage(monthlyGrowthPercentage)
+                .monthlyTransactionVolumePercentage(monthlyVolumePercentage)
                 .build();
     }
+
 }
