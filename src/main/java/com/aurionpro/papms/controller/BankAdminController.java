@@ -1,10 +1,13 @@
+// src/main/java/com/aurionpro/papms/controller/BankAdminController.java
 package com.aurionpro.papms.controller;
 
+import com.aurionpro.papms.dto.BankAdminDashboardStatsDto;
 import com.aurionpro.papms.dto.FinancialSummaryDto;
 import com.aurionpro.papms.service.DashboardService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -15,7 +18,16 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Bank Admin Tools", description = "APIs for Bank Administrators to audit and manage organizations")
 public class BankAdminController {
 
+    @Autowired
     private final DashboardService dashboardService;
+
+    @GetMapping("/dashboard-stats")
+    @PreAuthorize("hasRole('BANK_ADMIN')")
+    @Operation(summary = "Get aggregated statistics for the Bank Admin dashboard")
+    public ResponseEntity<BankAdminDashboardStatsDto> getDashboardStats() {
+        BankAdminDashboardStatsDto stats = dashboardService.getBankAdminDashboardStats();
+        return ResponseEntity.ok(stats);
+    }
 
     @GetMapping("/organizations/{organizationId}/financial-summary")
     @PreAuthorize("hasRole('BANK_ADMIN')")

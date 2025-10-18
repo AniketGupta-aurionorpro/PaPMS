@@ -204,7 +204,9 @@ public class PayrollServiceImpl implements PayrollService {
     @Override
     @Transactional(readOnly = true)
     public Page<PayrollBatchResponse> getPendingPayrolls(Pageable pageable) {
-        return payrollBatchRepository.findByStatus(PayrollStatus.PENDING_APPROVAL, pageable).map(PayrollMapper::toDto);
+        // FIX: Call the new repository method that fetches all details
+        return payrollBatchRepository.findByStatusWithDetails(PayrollStatus.PENDING_APPROVAL, pageable)
+                .map(PayrollMapper::toDto);
     }
 
     @Override

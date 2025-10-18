@@ -1,10 +1,8 @@
 package com.aurionpro.papms.service;
 
 import com.aurionpro.papms.Enum.InvoiceStatus;
-import com.aurionpro.papms.dto.CompleteEmployeeResponse;
-import com.aurionpro.papms.dto.DashboardStatsDto;
-import com.aurionpro.papms.dto.EmployeeDashboardDto;
-import com.aurionpro.papms.dto.FinancialSummaryDto;
+import com.aurionpro.papms.Enum.OrganizationStatus;
+import com.aurionpro.papms.dto.*;
 import com.aurionpro.papms.entity.*;
 import com.aurionpro.papms.exception.NotFoundException;
 import com.aurionpro.papms.mapper.EmployeeMapper;
@@ -22,8 +20,11 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -163,6 +164,39 @@ public class DashboardServiceImpl implements DashboardService {
                 .totalTransactions(totalTransactions)
                 .firstTransactionDate(firstTxDate)
                 .lastTransactionDate(lastTxDate)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BankAdminDashboardStatsDto getBankAdminDashboardStats() {
+        long total = organizationRepository.count();
+        long active = organizationRepository.countByStatus(OrganizationStatus.ACTIVE);
+        long pending = organizationRepository.countByStatus(OrganizationStatus.PENDING_APPROVAL);
+        long suspended = organizationRepository.countByStatus(OrganizationStatus.SUSPENDED);
+
+        LocalDateTime twelveMonthsAgo = LocalDateTime.now().minusMonths(11).withDayOfMonth(1).toLocalDate().atStartOfDay();
+        List<Map<String, Object>> growthDataRaw = organizationRepository.getMonthlyOrganizationGrowthSince(twelveMonthsAgo);
+
+        List<BankAdminDashboardStatsDto.OrganizationGrowthDataPoint> growthData = growthDataRaw.stream()
+                .map(row -> {
+                    // FIX: Cast to Number first, then get the integer value.
+                    Integer year = ((Number) row.get("year")).intValue();
+                    Integer month = ((Number) row.get("month")).intValue();
+                    String monthName = Month.of(month).name().substring(0, 3);
+                    return BankAdminDashboardStatsDto.OrganizationGrowthDataPoint.builder()
+                            .name(monthName + " " + year)
+                            .value(((Number) row.get("count")).intValue())
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        return BankAdminDashboardStatsDto.builder()
+                .totalOrganizations(total)
+                .activeOrganizations(active)
+                .pendingOrganizations(pending)
+                .suspendedOrganizations(suspended)
+                .organizationGrowth(growthData)
                 .build();
     }
 }

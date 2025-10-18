@@ -37,31 +37,29 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         Optional<User> userOptional = userRepository.findByEmail(request.getEmail());
 
         if (userOptional.isEmpty()) {
-            // SECURITY: Do not reveal if the user exists.
             log.warn("Password reset requested for non-existent email: {}", request.getEmail());
-            return; // Silently exit
+            return; // Silently exit to prevent user enumeration attacks
         }
 
         User user = userOptional.get();
 
-        // --- MODIFICATION START ---
-        // **THIS IS THE FIX:**
-        // Before creating a new token, delete any old one that might exist for this user.
-        // This resolves the conflict and ensures a new link can always be generated.
+        // --- THIS IS THE FIX ---
+        // Before creating a new token, we find and delete any old one (expired or not)
+        // that is associated with this user. This prevents the DataIntegrityViolationException.
         tokenRepository.deleteByUser(user);
-        log.info("Cleared any existing password reset tokens for user: {}", user.getUsername());
-        // --- MODIFICATION END ---
+        log.info("Cleared any existing password reset tokens for user '{}'", user.getUsername());
+        // --- END OF FIX ---
 
+        // Now we can safely create a new token
         String token = UUID.randomUUID().toString();
         PasswordResetToken resetToken = new PasswordResetToken(token, user);
         tokenRepository.save(resetToken);
 
-        // --- UPDATE THE FRONTEND URL IN THE LINK ---
-        // Change this from 'http://localhost:8080' to your Angular app's URL
-        String resetLink = "http://localhost:4200" + "/auth/reset-password?token=" + token;
+        // This link will now use the URL from your application.properties file
+        String resetLink = frontendUrl + "/auth/reset-password?token=" + token;
 
         sendPasswordResetEmail(user, resetLink);
-        log.info("Password reset link sent to email: {}", user.getEmail());
+        log.info("New password reset link sent to email: {}", user.getEmail());
     }
 
     @Override
@@ -81,7 +79,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
 
         User user = token.getUser();
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-        user.setRequiresPasswordChange(false); // The password is now changed
+        user.setRequiresPasswordChange(false);
         userRepository.save(user);
 
         tokenRepository.delete(token); // Invalidate the token after use

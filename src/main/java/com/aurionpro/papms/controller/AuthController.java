@@ -97,6 +97,7 @@ public class AuthController {
                 .fullName(user.getFullName())
                 .email(user.getEmail())
                 .role(user.getRole());
+        responseBuilder.requiresPasswordChange(user.getRequiresPasswordChange());
 
         // Step 5: Add role-specific details
         switch (user.getRole()) {

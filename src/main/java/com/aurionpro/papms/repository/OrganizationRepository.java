@@ -9,7 +9,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 
@@ -33,6 +35,16 @@ public interface OrganizationRepository extends JpaRepository<Organization, Inte
     Page<Organization> findByOptionalStatus(@Param("status") OrganizationStatus status, Pageable pageable);
 
     Page<Organization> findAll(Pageable pageable);
+
+    long countByStatus(OrganizationStatus status);
+
+    // ADDED for dashboard chart
+    @Query("SELECT new map(YEAR(o.createdAt) as year, MONTH(o.createdAt) as month, count(o.id) as count) " +
+            "FROM Organization o " +
+            "WHERE o.createdAt >= :startDate " +
+            "GROUP BY YEAR(o.createdAt), MONTH(o.createdAt) " +
+            "ORDER BY YEAR(o.createdAt), MONTH(o.createdAt) ASC")
+    List<Map<String, Object>> getMonthlyOrganizationGrowthSince(@Param("startDate") LocalDateTime startDate);
 
 
 }

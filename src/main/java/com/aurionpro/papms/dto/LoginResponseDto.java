@@ -15,7 +15,7 @@ public class LoginResponseDto {
     private String fullName;
     private String email;
     private Role role;
-
+    private Boolean requiresPasswordChange;
     // Organization details (for ORG_ADMIN, EMPLOYEE, CLIENT)
     private Integer organizationId;
     private String organizationName;
