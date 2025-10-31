@@ -13,15 +13,21 @@ import com.aurionpro.papms.mapper.TransactionMapper;
 import com.aurionpro.papms.repository.AppUserRepository;
 import com.aurionpro.papms.repository.OrganizationRepository;
 import com.aurionpro.papms.repository.TransactionRepository;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j; // ADDED
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +36,7 @@ public class TransactionServiceImpl implements TransactionService {
     private final OrganizationRepository organizationRepository;
     private final TransactionRepository transactionRepository;
     private final AppUserRepository userRepository;
+
     @Override
     @Transactional
     public Transaction processDebit(Organization organization, BigDecimal amount,
@@ -90,7 +97,9 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<TransactionDto> getTransactionsForOrganization(Integer organizationId, Pageable pageable) {
+    public Page<TransactionDto> getTransactionsForOrganization(Integer organizationId, String searchTerm,
+                                                               LocalDate startDate, LocalDate endDate,
+                                                               TransactionType type, Pageable pageable) {
         User currentUser = getLoggedInUser();
 
         if (currentUser.getRole() == Role.ORG_ADMIN && !currentUser.getOrganizationId().equals(organizationId)) {
@@ -99,10 +108,32 @@ public class TransactionServiceImpl implements TransactionService {
             throw new SecurityException("You are not authorized to view transactions for this organization.");
         }
 
-        log.info("Fetching transactions for organization ID {} with pagination: {}", organizationId, pageable);
-        Page<Transaction> transactionPage = transactionRepository
-                .findByOrganizationIdOrderByTransactionDateDesc(organizationId, pageable);
+        log.info("Fetching transactions for org ID {} with filters - Search: '{}', Type: {}, Start: {}, End: {}",
+                organizationId, searchTerm, type, startDate, endDate);
 
+        // --- DYNAMIC QUERY USING SPECIFICATIONS ---
+        Specification<Transaction> spec = (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(criteriaBuilder.equal(root.get("organization").get("id"), organizationId));
+
+            if (searchTerm != null && !searchTerm.isBlank()) {
+                predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("description")), "%" + searchTerm.toLowerCase() + "%"));
+            }
+            if (type != null) {
+                predicates.add(criteriaBuilder.equal(root.get("transactionType"), type));
+            }
+            if (startDate != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("transactionDate"), startDate.atStartOfDay()));
+            }
+            if (endDate != null) {
+                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("transactionDate"), endDate.atTime(23, 59, 59)));
+            }
+
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+        // --- END DYNAMIC QUERY ---
+
+        Page<Transaction> transactionPage = transactionRepository.findAll(spec, pageable);
         return transactionPage.map(TransactionMapper::toDto);
     }
     private User getLoggedInUser() {

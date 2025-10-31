@@ -7,21 +7,18 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import java.util.List;
 import java.util.Optional;
 
-public interface EmployeeRepository extends JpaRepository<Employee, Long> {
+public interface EmployeeRepository extends JpaRepository<Employee, Long>,JpaSpecificationExecutor<Employee> {
     Optional<Employee> findByUserId(Long userId);
     List<Employee> findByOrganizationId(Integer organizationId);
 
-    //paginaon ke leye dekhte he
     Page<Employee> findByOrganizationId(Integer organizationId, Pageable pageable);
     boolean existsByOrganizationIdAndEmployeeCode(Integer organizationId, String employeeCode);
-    // Add this inside the EmployeeRepository interface
     long countByOrganizationIdAndIsActiveTrue(Integer organizationId);
     @Query("SELECT e FROM Employee e WHERE e.organization.id = :organizationId AND e.user.username = :username")
     Optional<Employee> findByOrganizationIdAndUsername(@Param("organizationId") Integer organizationId,
                                                        @Param("username") String username);
-
 }

@@ -42,7 +42,7 @@ public class VendorController {
     }
 
     @GetMapping("/organization/{id}")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
+    @PreAuthorize("hasAnyRole('BANK_ADMIN', 'ORG_ADMIN')")
     public ResponseEntity<Page<VendorResponse>> getVendorsByOrganization(
             @PathVariable("id") Integer id,
             @ParameterObject Pageable pageable) {

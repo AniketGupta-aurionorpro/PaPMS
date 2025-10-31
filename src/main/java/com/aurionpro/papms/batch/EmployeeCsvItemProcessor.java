@@ -7,6 +7,9 @@ import com.aurionpro.papms.dto.CsvEmployeeRecord;
 import com.aurionpro.papms.entity.*;
 import com.aurionpro.papms.repository.AppUserRepository;
 import com.aurionpro.papms.repository.BankAccountRepository;
+import com.aurionpro.papms.dto.FailedEmployeeRecord;
+import org.springframework.batch.item.ExecutionContext;
+import java.util.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.StepExecution;
@@ -32,21 +35,45 @@ public class EmployeeCsvItemProcessor implements ItemProcessor<CsvEmployeeRecord
     private Set<String> existingUsernames = Collections.synchronizedSet(new HashSet<>());
     private Set<String> existingAccountNumbers = Collections.synchronizedSet(new HashSet<>());
 
-    /**
-     * This method is executed by Spring Batch BEFORE the step starts.
-     * We use it to load all necessary validation data into memory one time.
-     */
+    private List<FailedEmployeeRecord> failedRecords;
+    private ExecutionContext stepExecutionContext;
+    private long recordNumber = 0;
+
+//    @BeforeStep
+//    public void loadExistingData(StepExecution stepExecution) {
+//        log.info("Pre-loading existing usernames and account numbers for validation.");
+//
+//        // Fetch all usernames from the DB in one query
+//        Set<String> dbUsernames = appUserRepository.findAll().stream()
+//                .map(User::getUsername)
+//                .collect(Collectors.toSet());
+//        existingUsernames.addAll(dbUsernames);
+//
+//        // Fetch all account numbers from the DB in one query
+//        Set<String> dbAccountNumbers = bankAccountRepository.findAll().stream()
+//                .map(BankAccount::getAccountNumber)
+//                .collect(Collectors.toSet());
+//        existingAccountNumbers.addAll(dbAccountNumbers);
+//
+//        log.info("Pre-loading complete. Found {} usernames and {} account numbers.", existingUsernames.size(), existingAccountNumbers.size());
+//    }
+
     @BeforeStep
     public void loadExistingData(StepExecution stepExecution) {
         log.info("Pre-loading existing usernames and account numbers for validation.");
 
-        // Fetch all usernames from the DB in one query
+        // --- Store the execution context to add failed records to it ---
+        this.stepExecutionContext = stepExecution.getExecutionContext();
+        this.failedRecords = new ArrayList<>();
+        this.stepExecutionContext.put("failedRecords", this.failedRecords);
+        this.recordNumber = 0; // Reset for each step execution
+
+        // ... existing data loading logic remains the same ...
         Set<String> dbUsernames = appUserRepository.findAll().stream()
                 .map(User::getUsername)
                 .collect(Collectors.toSet());
         existingUsernames.addAll(dbUsernames);
 
-        // Fetch all account numbers from the DB in one query
         Set<String> dbAccountNumbers = bankAccountRepository.findAll().stream()
                 .map(BankAccount::getAccountNumber)
                 .collect(Collectors.toSet());
@@ -57,17 +84,32 @@ public class EmployeeCsvItemProcessor implements ItemProcessor<CsvEmployeeRecord
 
     @Override
     public Employee process(CsvEmployeeRecord record) throws Exception {
-        // --- EFFICIENT VALIDATION LOGIC ---
-        // The add() method returns false if the element is already in the set.
-        // This atomically checks for duplicates in the DB *and* within the file itself.
+        recordNumber++;
+
+        String errorMessage = null;
         if (!existingUsernames.add(record.getUsername())) {
-            log.warn("Skipping record. Username already exists: {}", record.getUsername());
-            return null; // Returning null skips writing this item
+            errorMessage = "Username '" + record.getUsername() + "' already exists in the system or this file.";
+        } else if (!existingAccountNumbers.add(record.getAccountNumber())) {
+            errorMessage = "Bank account number '" + record.getAccountNumber() + "' is already in use.";
         }
 
-        if (!existingAccountNumbers.add(record.getAccountNumber())) {
-            log.warn("Skipping record. Bank account number already exists: {}", record.getAccountNumber());
-            return null;
+        if (errorMessage != null) {
+            log.warn("Skipping record #{}. Reason: {}", recordNumber, errorMessage);
+
+            // Convert CsvEmployeeRecord to a Map for storage
+            Map<String, String> rowData = new HashMap<>();
+            rowData.put("username", record.getUsername());
+            rowData.put("fullName", record.getFullName());
+            rowData.put("email", record.getEmail());
+            rowData.put("employeeCode", record.getEmployeeCode());
+
+            // Add the failure to our list
+            failedRecords.add(new FailedEmployeeRecord(recordNumber, rowData, errorMessage));
+
+            // IMPORTANT: Update the list in the execution context
+            stepExecutionContext.put("failedRecords", failedRecords);
+
+            return null; // Skip this item
         }
 
         // --- TRANSFORMATION LOGIC ---

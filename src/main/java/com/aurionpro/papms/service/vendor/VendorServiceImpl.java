@@ -2,6 +2,7 @@ package com.aurionpro.papms.service.vendor;
 
 import com.aurionpro.papms.Enum.OwnerType;
 import com.aurionpro.papms.Enum.PaymentStatus;
+import com.aurionpro.papms.Enum.Role;
 import com.aurionpro.papms.Enum.TransactionSourceType;
 import com.aurionpro.papms.dto.vendorDto.VendorPaymentRequest;
 import com.aurionpro.papms.dto.vendorDto.VendorRequest;
@@ -106,9 +107,10 @@ public class VendorServiceImpl implements VendorService {
         User currentUser = getLoggedInUser();
 
         // Security Check
-        if (!currentUser.getOrganizationId().equals(organizationId)) {
+        if (currentUser.getRole() != Role.BANK_ADMIN && !currentUser.getOrganizationId().equals(organizationId)) {
             throw new SecurityException("You can only view vendors for your own organization.");
         }
+
         Page<Vendor> vendorPage = vendorRepository.findByOrganizationId(organizationId, pageable);
 
         return vendorPage.map(vendor -> {

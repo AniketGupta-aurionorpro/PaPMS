@@ -21,6 +21,11 @@ import com.aurionpro.papms.repository.OrganizationRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import com.aurionpro.papms.repository.ClientRepository;
+import com.aurionpro.papms.repository.EmployeeRepository;
+import com.aurionpro.papms.repository.InvoiceRepository;
+import com.aurionpro.papms.repository.TransactionRepository;
+import com.aurionpro.papms.repository.VendorRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -46,12 +51,19 @@ public class OrganizationServiceImpl implements OrganizationService {
     private final DocumentRepository documentRepository;
     private final ObjectMapper objectMapper;
     private final NotificationService notificationService;
+    private final EmployeeRepository employeeRepository;
+    private final ClientRepository clientRepository;
+    private final InvoiceRepository invoiceRepository;
+    private final TransactionRepository transactionRepository;
+    private final VendorRepository vendorRepository;
 
     public OrganizationServiceImpl(OrganizationRepository organizationRepository,
                                    PasswordEncoder passwordEncoder, AppUserRepository userRepo,
                                    EmailService emailService, CloudinaryService cloudinaryService,
                                    DocumentRepository documentRepository, ObjectMapper objectMapper,
-                                   NotificationService notificationService) {
+                                   NotificationService notificationService, EmployeeRepository employeeRepository,
+                                   ClientRepository clientRepository, InvoiceRepository invoiceRepository,
+                                   TransactionRepository transactionRepository, VendorRepository vendorRepository) {
         this.organizationRepository = organizationRepository;
         this.passwordEncoder = passwordEncoder;
         this.userRepo = userRepo;
@@ -60,6 +72,11 @@ public class OrganizationServiceImpl implements OrganizationService {
         this.documentRepository = documentRepository;
         this.objectMapper = objectMapper;
         this.notificationService = notificationService;
+        this.employeeRepository = employeeRepository;
+        this.clientRepository = clientRepository;
+        this.invoiceRepository = invoiceRepository;
+        this.transactionRepository = transactionRepository;
+        this.vendorRepository = vendorRepository;
     }
 
     // ADDED HELPER METHOD
@@ -204,7 +221,12 @@ public class OrganizationServiceImpl implements OrganizationService {
         if (organization.getStatus() != OrganizationStatus.PENDING_APPROVAL) {
             throw new IllegalStateException("Organization cannot be approved as its current status is " + organization.getStatus());
         }
+        boolean allDocumentsApproved = organization.getDocuments().stream()
+                .allMatch(doc -> doc.getStatus() == DocumentStatus.Approved);
 
+        if (!allDocumentsApproved) {
+            throw new IllegalStateException("Cannot approve organization. All verification documents must be in 'Approved' status.");
+        }
         // STEP 1: Find the associated ORG_ADMIN user who is currently disabled.
         // Assuming one ORG_ADMIN per org at registration.
         List<User> users = userRepo.findByOrganizationIdAndRole(organization.getId(), Role.ORG_ADMIN);
@@ -367,17 +389,25 @@ public class OrganizationServiceImpl implements OrganizationService {
                 .orElseThrow(() -> new NotFoundException("Organization not found with ID: " + id));
 
         if (organization.getStatus() != OrganizationStatus.PENDING_APPROVAL) {
-            throw new IllegalStateException("Organization cannot be rejected as its current status is " + organization.getStatus());
+            throw new IllegalStateException("Only PENDING_APPROVAL organizations can be rejected.");
         }
 
-        organization.setStatus(OrganizationStatus.REJECTED);
-        organization.setRejectionReason(rejectionReason);
+        // Find associated users
+        List<User> usersToDelete = userRepo.findByOrganizationId(id);
 
+        // Send rejection email BEFORE deleting, while we still have the user's email
         String subject = "Update on Your Organization Registration";
-        String body = "<h3>We regret to inform you that your registration for " + organization.getCompanyName() + " has been rejected. Reason: " + rejectionReason + ".</h3>";
+        String body = "<h3>We regret to inform you that your registration for " + organization.getCompanyName() + " has been rejected. Reason: " + rejectionReason + ". If you want please register again after resolving the issue</h3>";
         emailService.sendEmail("bank-email@example.com", organization.getContactEmail(), subject, body);
 
-        return organizationRepository.save(organization);
+
+        userRepo.deleteAll(usersToDelete);
+        documentRepository.deleteAll(organization.getDocuments());
+
+
+        organizationRepository.delete(organization);
+
+        return organization;
     }
 
     private String generateUniqueAccountNumber() {
@@ -444,4 +474,12 @@ public class OrganizationServiceImpl implements OrganizationService {
         return organizationRepository.save(organization);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Organization getOrganizationWithEmployees(Integer id) {
+        // Fetching the organization by ID. The @Transactional annotation will allow
+        // the lazy-loaded 'employees' collection to be fetched when accessed later.
+        return organizationRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Organization not found with ID: " + id));
+    }
 }

@@ -10,8 +10,11 @@ import com.aurionpro.papms.repository.*;
 import com.aurionpro.papms.exception.DuplicateUserException;
 import com.aurionpro.papms.exception.NotFoundException;
 import com.aurionpro.papms.mapper.EmployeeMapper;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
+import com.aurionpro.papms.dto.UpdateCompleteEmployeeRequest; // NEW IMPORT
+import java.util.Objects;
 import org.slf4j.LoggerFactory;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -20,6 +23,7 @@ import org.springframework.batch.core.Job;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -183,22 +187,6 @@ public class EmployeeServiceImpl implements EmployeeService {
         return employeePage.map(EmployeeMapper::toDto);
     }
 
-//    @Override
-//    @Transactional(readOnly = true)
-//    public List<EmployeeResponseDto> getEmployeesByOrganization(Integer organizationId) {
-//        User currentUser = getLoggedInUser();
-//
-//        if (currentUser.getRole() == Role.ORG_ADMIN && !currentUser.getOrganizationId().equals(organizationId)) {
-//            throw new SecurityException("You cannot view employees of another organization.");
-//        }
-//
-//        organizationRepository.findById(organizationId)
-//                .orElseThrow(() -> new NotFoundException("Organization not found with ID: " + organizationId));
-//
-//        return employeeRepository.findByOrganizationId(organizationId).stream()
-//                .map(EmployeeMapper::toDto)
-//                .collect(Collectors.toList());
-//    }
 
     @Override
     @Transactional(readOnly = true)
@@ -1014,4 +1002,204 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
             throw new IOException("Could not generate the CSV template.", e);
         }
     }
+
+//    @Override
+//    @Transactional(readOnly = true)
+//    public Page<EmployeeResponseDto> getEmployeesByOrganization(
+//            Integer organizationId, Pageable pageable, String searchTerm, String department, Boolean activeStatus) {
+//
+//        User currentUser = getLoggedInUser();
+//        if (currentUser.getRole() == Role.ORG_ADMIN && !currentUser.getOrganizationId().equals(organizationId)) {
+//            throw new SecurityException("You cannot view employees of another organization.");
+//        }
+//
+//        // Use JPA Specifications for dynamic query building
+//        Specification<Employee> spec = (root, query, criteriaBuilder) -> {
+//            List<Predicate> predicates = new ArrayList<>();
+//            predicates.add(criteriaBuilder.equal(root.get("organization").get("id"), organizationId));
+//
+//            if (searchTerm != null && !searchTerm.isBlank()) {
+//                Predicate nameMatch = criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("fullName")), "%" + searchTerm.toLowerCase() + "%");
+//                Predicate emailMatch = criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("email")), "%" + searchTerm.toLowerCase() + "%");
+//                predicates.add(criteriaBuilder.or(nameMatch, emailMatch));
+//            }
+//
+//            if (department != null && !department.isBlank() && !department.equals("ALL")) {
+//                predicates.add(criteriaBuilder.equal(root.get("department"), department));
+//            }
+//
+//            if (activeStatus != null) {
+//                predicates.add(criteriaBuilder.equal(root.get("isActive"), activeStatus));
+//            }
+//
+//            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+//        };
+//
+//        Page<Employee> employeePage = employeeRepository.findAll(spec, pageable);
+//        return employeePage.map(EmployeeMapper::toDto);
+//    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<CompleteEmployeeResponse> getEmployeesByOrganization1(
+            Integer organizationId, Pageable pageable, String searchTerm, String department, Boolean activeStatus) {
+
+        User currentUser = getLoggedInUser();
+        if (currentUser.getRole() == Role.ORG_ADMIN && !currentUser.getOrganizationId().equals(organizationId)) {
+            throw new SecurityException("You cannot view employees of another organization.");
+        }
+
+        // JPA Specifications for dynamic query building (logic remains the same)
+        Specification<Employee> spec = (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(criteriaBuilder.equal(root.get("organization").get("id"), organizationId));
+
+            if (searchTerm != null && !searchTerm.isBlank()) {
+                Predicate nameMatch = criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("fullName")), "%" + searchTerm.toLowerCase() + "%");
+                Predicate emailMatch = criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("email")), "%" + searchTerm.toLowerCase() + "%");
+                predicates.add(criteriaBuilder.or(nameMatch, emailMatch));
+            }
+
+            if (department != null && !department.isBlank() && !department.equals("ALL")) {
+                predicates.add(criteriaBuilder.equal(root.get("department"), department));
+            }
+
+            if (activeStatus != null) {
+                predicates.add(criteriaBuilder.equal(root.get("isActive"), activeStatus));
+            }
+
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<Employee> employeePage = employeeRepository.findAll(spec, pageable);
+
+        // FIX: Change the mapper to return the complete DTO
+        return employeePage.map(EmployeeMapper::toCompleteDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<CompleteEmployeeResponse> getEmployeesByOrganization(
+            Integer organizationId, Pageable pageable, String searchTerm, String department, Boolean activeStatus) {
+
+        User currentUser = getLoggedInUser();
+        if (currentUser.getRole() == Role.ORG_ADMIN && !currentUser.getOrganizationId().equals(organizationId)) {
+            throw new SecurityException("You cannot view employees of another organization.");
+        }
+
+        Specification<Employee> spec = (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(criteriaBuilder.equal(root.get("organization").get("id"), organizationId));
+
+            if (searchTerm != null && !searchTerm.isBlank()) {
+                Predicate nameMatch = criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("fullName")), "%" + searchTerm.toLowerCase() + "%");
+                Predicate emailMatch = criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("email")), "%" + searchTerm.toLowerCase() + "%");
+                predicates.add(criteriaBuilder.or(nameMatch, emailMatch));
+            }
+
+            if (department != null && !department.isBlank() && !department.equals("ALL")) {
+                predicates.add(criteriaBuilder.equal(root.get("department"), department));
+            }
+
+            if (activeStatus != null) {
+                predicates.add(criteriaBuilder.equal(root.get("isActive"), activeStatus));
+            }
+
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<Employee> employeePage = employeeRepository.findAll(spec, pageable);
+        return employeePage.map(EmployeeMapper::toCompleteDto);
+    }
+
+    // NEW: Implementation for the comprehensive update logic
+    @Override
+    @Transactional
+    public CompleteEmployeeResponse updateCompleteEmployee(Integer organizationId, Long employeeId, UpdateCompleteEmployeeRequest request) {
+        User currentUser = getLoggedInUser();
+        Employee employee = getEmployeeWithAuthorization(employeeId, currentUser, false);
+        validateOrganizationAccess(currentUser, organizationId, employee);
+
+        boolean hasChanges = false;
+
+        // 1. Update User Details
+        if (request.getUser() != null) {
+            User user = employee.getUser();
+            user.setFullName(request.getUser().getFullName());
+            // Email is typically not changed this way, but included if needed
+            // user.setEmail(request.getUser().getEmail());
+            appUserRepository.save(user);
+            hasChanges = true;
+        }
+
+        // 2. Update Employee Details & Status
+        if (request.getEmployee() != null) {
+            employee.setDepartment(request.getEmployee().getDepartment());
+            employee.setJobTitle(request.getEmployee().getJobTitle());
+            // Handle status change
+            if (!Objects.equals(employee.getIsActive(), request.getEmployee().getIsActive())) {
+                toggleEmployeeStatus(organizationId, employeeId, request.getEmployee().getIsActive());
+            }
+            hasChanges = true;
+        }
+
+        // 3. Update Bank Account
+        if (request.getBankAccount() != null) {
+            BankAccount bankAccount = bankAccountRepository.findByEmployeeId(employeeId)
+                    .orElseThrow(() -> new NotFoundException("Bank account not found for employee"));
+            UpdateCompleteEmployeeRequest.BankAccountDetails bankDetails = request.getBankAccount();
+            bankAccount.setAccountHolderName(bankDetails.getAccountHolderName());
+            bankAccount.setAccountNumber(bankDetails.getAccountNumber());
+            bankAccount.setBankName(bankDetails.getBankName());
+            bankAccount.setIfscCode(bankDetails.getIfscCode());
+            bankAccountRepository.save(bankAccount);
+            hasChanges = true;
+        }
+
+        // 4. Update Salary Structure (Deactivate old, create new)
+        if (request.getSalary() != null) {
+            updateSalaryStructureLogic(employee, request.getSalary());
+            hasChanges = true;
+        }
+
+        employeeRepository.save(employee);
+
+        if (hasChanges) {
+            notificationService.createNotification(employee.getUser(), "Your employee profile has been updated by an administrator.", "/profile");
+        }
+
+        // Refetch the employee to ensure all updated relations are loaded for the response DTO
+        Employee updatedEmployee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new NotFoundException("Employee not found after update"));
+
+        return EmployeeMapper.toCompleteDto(updatedEmployee);
+    }
+
+    // Helper method for the salary update logic as requested
+    private void updateSalaryStructureLogic(Employee employee, UpdateCompleteEmployeeRequest.SalaryDetails salaryRequest) {
+        // Deactivate current active salary structure
+        salaryStructureRepository.findByEmployeeIdAndIsActiveTrue(employee.getId())
+                .ifPresent(currentSalary -> {
+                    log.info("Deactivating old salary structure ID {} for employee {}", currentSalary.getId(), employee.getId());
+                    currentSalary.setIsActive(false);
+                    salaryStructureRepository.save(currentSalary);
+                });
+
+        // Create new active salary structure
+        SalaryStructure newSalary = SalaryStructure.builder()
+                .employee(employee)
+                .basicSalary(salaryRequest.getBasicSalary())
+                .hra(salaryRequest.getHra())
+                .da(salaryRequest.getDa())
+                .pfContribution(salaryRequest.getPfContribution())
+                .otherAllowances(salaryRequest.getOtherAllowances())
+                .effectiveFromDate(salaryRequest.getEffectiveFromDate())
+                .isActive(true)
+                .build();
+
+        SalaryStructure savedSalary = salaryStructureRepository.save(newSalary);
+        log.info("Created new active salary structure ID {} for employee {}. Reason: {}", savedSalary.getId(), employee.getId(), salaryRequest.getChangeReason());
+    }
+
+
 }

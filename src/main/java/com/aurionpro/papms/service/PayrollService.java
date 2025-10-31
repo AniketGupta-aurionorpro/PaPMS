@@ -8,6 +8,8 @@ import org.springframework.data.domain.Pageable;
 
 import com.aurionpro.papms.dto.payroll.PayrollPaymentResponse;
 
+import java.util.Map;
+
 public interface PayrollService {
     PayrollBatchResponse createPayroll(Integer organizationId, CreatePayrollRequest request);
     Page<PayrollBatchResponse> getPayrollsForOrganization(Integer organizationId, Pageable pageable);
@@ -17,4 +19,5 @@ public interface PayrollService {
     PayrollBatchResponse rejectPayroll(Long batchId, String reason);
     PayrollPaymentResponse getPayrollPaymentDetails(Long paymentId);
     Page<MyPayslipHistoryDto> getMyPayslipHistory(Pageable pageable);
+    Map<Integer, Long> getPendingPayrollCountsByOrganization();
 }

@@ -26,4 +26,6 @@ public interface ClientService {
 
     // Payment Processing
     String processInvoicePayment(Integer invoiceId);
+
+    Page<ClientResponseDto> getAllClientsForOrganization(Integer organizatioId, Pageable pageable);
 }

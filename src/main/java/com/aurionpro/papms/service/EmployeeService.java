@@ -9,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import com.aurionpro.papms.dto.CompleteEmployeeResponse;
+import com.aurionpro.papms.dto.UpdateCompleteEmployeeRequest;
 
 import java.io.IOException;
 import java.util.List;
@@ -53,4 +54,16 @@ public interface EmployeeService {
     CompleteEmployeeResponse getCompleteEmployeeProfileByUsername(String username);
     CompleteEmployeeResponse uploadProfilePicture(Integer organizationId, Long employeeId, MultipartFile file);
     byte[] generateCsvTemplate() throws IOException;
-}
+
+//    public Page<EmployeeResponseDto> getEmployeesByOrganization(
+//            Integer organizationId, Pageable pageable, String searchTerm, String department, Boolean activeStatus);
+
+    Page<CompleteEmployeeResponse> getEmployeesByOrganization(
+            Integer organizationId, Pageable pageable, String searchTerm, String department, Boolean activeStatus);
+
+
+    CompleteEmployeeResponse updateCompleteEmployee(Integer organizationId, Long employeeId, UpdateCompleteEmployeeRequest request);
+    public Page<CompleteEmployeeResponse> getEmployeesByOrganization1(
+            Integer organizationId, Pageable pageable, String searchTerm, String department, Boolean activeStatus);
+
+    }

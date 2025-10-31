@@ -100,4 +100,15 @@ public class ClientController {
 
         return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
     }
+
+    @GetMapping("/organizations/{organizationId}/clients")
+    @PreAuthorize("hasAnyRole('BANK_ADMIN', 'ORG_ADMIN')")
+    public ResponseEntity<Page<ClientResponseDto>> getClientsForOrganization(
+            @PathVariable Integer organizationId,
+            @ParameterObject Pageable pageable) {
+        log.info("Request to get clients for organization ID {} with pagination: {}", organizationId, pageable);
+        Page<ClientResponseDto> clientsPage = clientService.getAllClientsForOrganization(organizationId, pageable);
+        log.info("Returning {} clients on page {} for org ID {}", clientsPage.getNumberOfElements(), pageable.getPageNumber(), organizationId);
+        return ResponseEntity.ok(clientsPage);
+    }
 }

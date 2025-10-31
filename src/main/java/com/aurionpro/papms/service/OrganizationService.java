@@ -29,6 +29,7 @@ public interface OrganizationService {
 
     List<Organization> getPendingOrganizations();
     Organization reactivateOrganization(Integer id);
+    Organization getOrganizationWithEmployees(Integer id);
     Optional<Organization> getOrganizationById(Integer id);
 
     Optional<Organization> getOrganizationByName(String companyName);

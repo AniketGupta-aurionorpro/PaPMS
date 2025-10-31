@@ -31,6 +31,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -224,7 +226,14 @@ public class PayrollServiceImpl implements PayrollService {
                 .orElseThrow(() -> new IllegalStateException("Authenticated user not found."));
     }
 
+    // --- FIX: Updated validation logic ---
     private void validateOrgAccess(User user, Integer organizationId) {
+        // BANK_ADMIN can access any organization's payrolls, so we skip the check for them.
+        if (user.getRole() == Role.BANK_ADMIN) {
+            return;
+        }
+
+        // For ORG_ADMIN, ensure they are accessing their own organization's data.
         if (!user.getOrganizationId().equals(organizationId)) {
             throw new SecurityException("Access denied to this organization's resources.");
         }
@@ -278,5 +287,19 @@ public class PayrollServiceImpl implements PayrollService {
                 .netSalaryPaid(payment.getNetSalaryPaid())
                 .status(payment.getStatus().name())
                 .build());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<Integer, Long> getPendingPayrollCountsByOrganization() {
+        log.info("Fetching pending payroll counts for all organizations.");
+        List<Map<String, Object>> results = payrollBatchRepository.countPendingPayrollsByOrganization();
+
+        return results.stream().collect(
+                Collectors.toMap(
+                        result -> (Integer) result.get("organizationId"),
+                        result -> (Long) result.get("pendingCount")
+                )
+        );
     }
 }

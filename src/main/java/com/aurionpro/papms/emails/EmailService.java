@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.mail.javamail.MimeMessagePreparator;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import jakarta.mail.MessagingException;
@@ -19,6 +20,7 @@ public class EmailService {
     private JavaMailSender mailSender;
 
     // Send email with custom from address (for different organizations or the bank)
+    @Async
     public void sendEmail(String from, String to, String subject, String body) {
         log.info("Preparing to send email from '{}' to '{}' with subject: {}", from, to, subject);
         MimeMessagePreparator messagePreparator = mimeMessage -> {

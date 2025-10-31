@@ -172,7 +172,12 @@ public class ClientServiceImpl implements ClientService {
         return "Payment for invoice " + invoice.getInvoiceNumber() + " processed successfully.";
     }
 
-    // ... (the rest of the methods: getClientById, getAllClientsForCurrentOrg, etc., remain unchanged)
+    @Override
+    public Page<ClientResponseDto> getAllClientsForOrganization(Integer organizatioId, Pageable pageable) {
+        Page<Client> clientPage = clientRepository.findByOrganizationId(organizatioId, pageable);
+        return clientPage.map(ClientMapper::toDto);
+    }
+
 
     @Override
     @Transactional(readOnly = true)

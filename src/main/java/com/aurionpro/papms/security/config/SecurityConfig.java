@@ -77,7 +77,9 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-                                "/actuator/health"
+                                "/actuator/health",
+                                "/api/organizations/*/employees/check-username",
+                                "/api/organizations/*/employees/check-email"
                         ).permitAll()
 
                         // Deposit endpoints
@@ -102,16 +104,17 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/organizations/*/documents/*/reject").hasRole("BANK_ADMIN")
 
                         // Vendor endpoints
-                        .requestMatchers("/api/vendors/**").hasRole("ORG_ADMIN")
+                        .requestMatchers("/api/vendors/**").hasAnyRole("ORG_ADMIN","BANK_ADMIN")
 
                         // Payroll endpoints
                         .requestMatchers(HttpMethod.POST, "/api/organizations/*/payrolls").hasRole("ORG_ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/organizations/*/payrolls/**").hasRole("ORG_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/organizations/*/payrolls/**").hasAnyRole("BANK_ADMIN", "ORG_ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/payrolls/pending").hasRole("BANK_ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/payrolls/*").hasAnyRole("BANK_ADMIN", "ORG_ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/payrolls/*/approve").hasRole("BANK_ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/payrolls/*/reject").hasRole("BANK_ADMIN")
                         .requestMatchers(HttpMethod.POST, "/auth/force-change-password").authenticated()
+                        .requestMatchers("/api/bank-admin/reports/**").hasRole("BANK_ADMIN")
                         // CATCH-ALL RULE: MUST BE LAST!
                         .anyRequest().authenticated()
                 )

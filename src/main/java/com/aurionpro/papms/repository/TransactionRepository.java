@@ -7,15 +7,18 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-public interface TransactionRepository extends JpaRepository<Transaction, Long> {
+public interface TransactionRepository extends JpaRepository<Transaction, Long>,JpaSpecificationExecutor<Transaction> {
+//    Page<Transaction> findByOrganizationIdOrderByTransactionDateDesc(Integer organizationId, Pageable pageable);
+//    List<Transaction> findAllByOrganizationIdOrderByTransactionDateDesc(Integer organizationId);
     Page<Transaction> findByOrganizationIdOrderByTransactionDateDesc(Integer organizationId, Pageable pageable);
+
     List<Transaction> findAllByOrganizationIdOrderByTransactionDateDesc(Integer organizationId);
     @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t WHERE t.organization.id = :orgId AND t.transactionDate >= :startDate")
     BigDecimal findTotalVolumeSince(@Param("orgId") Integer orgId, @Param("startDate") LocalDateTime startDate);

@@ -22,7 +22,12 @@ import org.springframework.http.MediaType;
 import java.io.IOException;
 import com.aurionpro.papms.dto.payroll.PayrollPaymentResponse;
 import com.aurionpro.papms.service.PayrollService;
-
+import com.aurionpro.papms.dto.UpdateCompleteEmployeeRequest; // NEW IMPORT
+import org.springframework.web.bind.annotation.PutMapping;
+import java.util.Map; // NEW IMPORT
+import com.aurionpro.papms.repository.AppUserRepository; // NEW IMPORT
+import org.springframework.web.bind.annotation.GetMapping; // NEW IMPORT
+import org.springframework.web.bind.annotation.RequestParam; // NEW IMPORT
 import java.util.List;
 
 @RestController
@@ -35,6 +40,7 @@ public class EmployeeController {
     private final PayslipPdfService payslipPdfService; // Inject new service
     private final PayrollExcelReportService payrollExcelReportService;
     private final PayrollService payrollService;
+    private final AppUserRepository appUserRepository;
 
     @PostMapping
     @PreAuthorize("hasRole('ORG_ADMIN')")
@@ -59,16 +65,7 @@ public class EmployeeController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping
-    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'BANK_ADMIN')")
-    public ResponseEntity<Page<EmployeeResponseDto>> getEmployeesByOrganization(
-            @PathVariable Integer organizationId,
-            @ParameterObject Pageable pageable)  { // <-- Spring automatically creates this from URL params
-        log.info("Request to get employees for organization ID {} with pagination {}", organizationId, pageable);
-        Page<EmployeeResponseDto> employeesPage = employeeService.getEmployeesByOrganization(organizationId, pageable);
-        log.info("Returning {} employees for organization ID {}", employeesPage.getTotalElements(), organizationId);
-        return ResponseEntity.ok(employeesPage);
-    }
+
 
     @GetMapping("/{employeeId}")
     @PreAuthorize("hasAnyRole('ORG_ADMIN', 'BANK_ADMIN')")
@@ -215,23 +212,7 @@ public class EmployeeController {
                     .body("Failed to start the CSV import job: " + e.getMessage());
         }
     }
-//    @PostMapping(path = "/bulk-upload-batch", consumes = "multipart/form-data") // New endpoint name
-//    @PreAuthorize("hasRole('ORG_ADMIN')")
-//    @Operation(summary = "Bulk upload employees via CSV using asynchronous Batch Processing")
-//    public ResponseEntity<String> bulkUploadEmployeesBatch(
-//            @PathVariable Integer organizationId,
-//            @RequestParam("file") MultipartFile file) {
-//        log.info("Request to launch asynchronous batch import job for organization ID {}", organizationId);
-//        try {
-//            String responseMessage = employeeService.launchCsvImportJob(organizationId, file);
-//            log.info("Batch job for organization ID {} launched successfully.", organizationId);
-//            return ResponseEntity.accepted().body(responseMessage); // Return 202 Accepted
-//        } catch (Exception e) {
-//            log.error("Failed to LAUNCH the CSV import job for organization ID {}", organizationId, e);
-//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-//                    .body("Failed to start the CSV import job: " + e.getMessage());
-//        }
-//    }
+//
 
     @GetMapping("/payslips/{paymentId}/download")
     @PreAuthorize("hasRole('EMPLOYEE')")
@@ -319,4 +300,86 @@ public class EmployeeController {
         }
     }
 
+//    @GetMapping
+//    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'BANK_ADMIN')")
+//    public ResponseEntity<Page<EmployeeResponseDto>> getEmployeesByOrganization(
+//            @PathVariable Integer organizationId,
+//            @ParameterObject Pageable pageable,
+//            @RequestParam(required = false) String searchTerm,
+//            @RequestParam(required = false) String department,
+//            @RequestParam(required = false) Boolean active) {
+//
+//        log.info("Request to get employees for org ID {} with filters - Search: '{}', Dept: '{}', Active: {}",
+//                organizationId, searchTerm, department, active);
+//
+//        Page<EmployeeResponseDto> employeesPage = employeeService.getEmployeesByOrganization(organizationId, pageable, searchTerm, department, active);
+//        log.info("Returning {} employees for organization ID {}", employeesPage.getTotalElements(), organizationId);
+//        return ResponseEntity.ok(employeesPage);
+//    }
+
+//    @GetMapping
+//    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'BANK_ADMIN')")
+//    public ResponseEntity<Page<CompleteEmployeeResponse>> getEmployeesByOrganization1(
+//            @PathVariable Integer organizationId,
+//            @ParameterObject Pageable pageable,
+//            @RequestParam(required = false) String searchTerm,
+//            @RequestParam(required = false) String department,
+//            @RequestParam(required = false) Boolean active) {
+//
+//        log.info("Request to get employees for org ID {} with filters - Search: '{}', Dept: '{}', Active: {}",
+//                organizationId, searchTerm, department, active);
+//
+//        // The service call now returns the complete response DTO
+//        Page<CompleteEmployeeResponse> employeesPage = employeeService.getEmployeesByOrganization1(organizationId, pageable, searchTerm, department, active);
+//
+//        log.info("Returning {} employees for organization ID {}", employeesPage.getTotalElements(), organizationId);
+//        return ResponseEntity.ok(employeesPage);
+//    }
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'BANK_ADMIN')")
+    public ResponseEntity<Page<CompleteEmployeeResponse>> getEmployeesByOrganization(
+            @PathVariable Integer organizationId,
+            @ParameterObject Pageable pageable,
+            @RequestParam(required = false) String searchTerm,
+            @RequestParam(required = false) String department,
+            @RequestParam(required = false) Boolean active) {
+
+        log.info("Request to get employees for org ID {} with filters - Search: '{}', Dept: '{}', Active: {}",
+                organizationId, searchTerm, department, active);
+
+        Page<CompleteEmployeeResponse> employeesPage = employeeService.getEmployeesByOrganization(
+                organizationId, pageable, searchTerm, department, active);
+
+        log.info("Returning {} employees for organization ID {}", employeesPage.getTotalElements(), organizationId);
+        return ResponseEntity.ok(employeesPage);
+    }
+
+
+    @PutMapping("/{employeeId}/complete")
+    @PreAuthorize("hasRole('ORG_ADMIN')")
+    @Operation(summary = "Update complete employee details, including salary and bank info")
+    public ResponseEntity<CompleteEmployeeResponse> updateCompleteEmployee(
+            @PathVariable Integer organizationId,
+            @PathVariable Long employeeId,
+            @Valid @RequestBody UpdateCompleteEmployeeRequest request) {
+        log.info("Admin request to perform a complete update for employee ID {} in org ID {}", employeeId, organizationId);
+        CompleteEmployeeResponse response = employeeService.updateCompleteEmployee(organizationId, employeeId, request);
+        log.info("Successfully performed complete update for employee ID {}", employeeId);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/check-username")
+    @Operation(summary = "Check if a username is available", description = "Returns true if the username does not exist in the system.")
+    public ResponseEntity<Map<String, Boolean>> checkUsernameAvailability(@RequestParam String username) {
+        boolean isAvailable = !appUserRepository.existsByUsername(username);
+        return ResponseEntity.ok(Map.of("isAvailable", isAvailable));
+    }
+
+    @GetMapping("/check-email")
+    @Operation(summary = "Check if an email is available", description = "Returns true if the email does not exist in the system.")
+    public ResponseEntity<Map<String, Boolean>> checkEmailAvailability(@RequestParam String email) {
+        boolean isAvailable = appUserRepository.findByEmail(email).isEmpty();
+        return ResponseEntity.ok(Map.of("isAvailable", isAvailable));
+    }
 }

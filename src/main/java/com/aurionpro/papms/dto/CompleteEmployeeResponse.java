@@ -5,6 +5,7 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Data
 public class CompleteEmployeeResponse {
@@ -24,6 +25,7 @@ public class CompleteEmployeeResponse {
     private LocalDate dateOfJoining;
     private String department;
     private String jobTitle;
+    @JsonProperty("isEmployeeActive") // Add this annotation
     private boolean isEmployeeActive;
 
     // Bank Account details

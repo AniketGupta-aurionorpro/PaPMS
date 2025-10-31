@@ -1,5 +1,6 @@
 package com.aurionpro.papms.controller;
 
+import com.aurionpro.papms.Enum.TransactionType;
 import com.aurionpro.papms.dto.TransactionDto;
 import com.aurionpro.papms.service.TransactionExcelReportService;
 import com.aurionpro.papms.service.TransactionService;
@@ -10,17 +11,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/organizations/{organizationId}/transactions")
@@ -34,14 +34,19 @@ public class TransactionController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ORG_ADMIN', 'BANK_ADMIN')")
-    @Operation(summary = "Get a paginated list of all transactions for an organization",
-            description = "Retrieves a list of all credit and debit transactions for a specified organization, sorted by most recent first. ORG_ADMIN can only access their own organization.")
+    @Operation(summary = "Get a paginated and filtered list of all transactions for an organization")
     public ResponseEntity<Page<TransactionDto>> getTransactions(
             @PathVariable Integer organizationId,
-            @ParameterObject Pageable pageable) {
+            @ParameterObject Pageable pageable,
+            // --- NEW FILTER PARAMETERS ---
+            @RequestParam(required = false) String searchTerm,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) TransactionType type) {
 
-        log.info("Request received to get transactions for organization ID: {}", organizationId);
-        Page<TransactionDto> transactions = transactionService.getTransactionsForOrganization(organizationId, pageable);
+        Page<TransactionDto> transactions = transactionService.getTransactionsForOrganization(
+                organizationId, searchTerm, startDate, endDate, type, pageable);
+
         return ResponseEntity.ok(transactions);
     }
 

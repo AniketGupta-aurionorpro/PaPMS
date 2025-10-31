@@ -16,6 +16,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
@@ -26,7 +28,7 @@ public class PayrollController {
     private final PayrollService payrollService;
 
     @PostMapping("/organizations/{organizationId}/payrolls")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
+    @PreAuthorize("hasAnyRole('ORG_ADMIN')")
     @Operation(summary = "Create and submit a new payroll batch for approval")
     public ResponseEntity<PayrollBatchResponse> createPayroll(
             @PathVariable Integer organizationId,
@@ -46,7 +48,7 @@ public class PayrollController {
     }
 
     @GetMapping("/organizations/{organizationId}/payrolls")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'BANK_ADMIN')")
     @Operation(summary = "Get payroll history for an organization")
     public ResponseEntity<Page<PayrollBatchResponse>> getPayrollsForOrganization(
             @PathVariable Integer organizationId,
@@ -83,5 +85,13 @@ public class PayrollController {
         PayrollBatchResponse response = payrollService.rejectPayroll(batchId, reason);
         log.info("Successfully rejected payroll batch ID {}. New status: {}", batchId, response.getStatus());
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/payrolls/pending-counts")
+    @PreAuthorize("hasRole('BANK_ADMIN')")
+    @Operation(summary = "Get counts of pending payrolls grouped by organization")
+    public ResponseEntity<Map<Integer, Long>> getPendingPayrollCounts() {
+        log.info("Bank Admin request to get pending payroll counts by organization.");
+        return ResponseEntity.ok(payrollService.getPendingPayrollCountsByOrganization());
     }
 }

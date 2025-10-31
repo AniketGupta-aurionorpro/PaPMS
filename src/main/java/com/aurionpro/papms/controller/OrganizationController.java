@@ -156,6 +156,16 @@ public ResponseEntity<Page<OrganizationResponseDto>> getAllOrganizations(
         log.info("Successfully reactivated organization ID {}. New status: ACTIVE", id);
         return ResponseEntity.ok(OrganizationMapper.toDto(reactivatedOrg));
     }
+    @GetMapping("/{id}/with-employees")
+    @PreAuthorize("hasRole('BANK_ADMIN')")
+    @Transactional(readOnly = true)
+    public ResponseEntity<OrganizationResponseDtowithEmployee> getOrganizationWithEmployees(@PathVariable Integer id) {
+        log.info("Request to get organization with employees for ID: {}", id);
+        Organization organization = organizationService.getOrganizationWithEmployees(id);
+        OrganizationResponseDtowithEmployee dto = OrganizationMapper.toDtoWithEmployees(organization);
+        log.info("Successfully fetched organization '{}' with {} employees.", dto.getCompanyName(), dto.getEmployees() != null ? dto.getEmployees().size() : 0);
+        return ResponseEntity.ok(dto);
+    }
     @GetMapping("/{id}/profile")
     @PreAuthorize("hasAnyRole('BANK_ADMIN', 'ORG_ADMIN')")
     public ResponseEntity<OrganizationProfileResponse> getProfile(@PathVariable Integer id) {
