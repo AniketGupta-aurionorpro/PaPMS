@@ -41,6 +41,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final TransactionRepository transactionRepository;
     private final AppUserRepository userRepository;
     private final PayrollPaymentRepository payrollPaymentRepository;
+    private final PayrollBatchRepository payrollBatchRepository; // NEW
 
     @Override
     @Transactional(readOnly = true)
@@ -58,10 +59,12 @@ public class DashboardServiceImpl implements DashboardService {
         // Core Stats
         long currentEmployees = employeeRepository.countByOrganizationIdAndIsActiveTrue(organizationId);
         long currentVendors = vendorRepository.countByOrganizationIdAndIsActiveTrue(organizationId);
-        long currentPendingInvoices = invoiceRepository.countByOrganizationIdAndStatusNot(organizationId, InvoiceStatus.PAID);
+        long currentPendingInvoices = invoiceRepository.countByOrganizationIdAndStatusNot(organizationId,
+                InvoiceStatus.PAID);
 
         // Previous period for percentage change
-        long previousPendingInvoices = invoiceRepository.countByOrganizationIdAndStatusNotAndCreatedAtBefore(organizationId, InvoiceStatus.PAID, thisMonthStart);
+        long previousPendingInvoices = invoiceRepository.countByOrganizationIdAndStatusNotAndCreatedAtBefore(
+                organizationId, InvoiceStatus.PAID, thisMonthStart);
 
         // Recent Transactions
         Pageable recentTransactionsPageable = PageRequest.of(0, 5, Sort.by("transactionDate").descending());
@@ -73,13 +76,18 @@ public class DashboardServiceImpl implements DashboardService {
                 .totalVendors(currentVendors)
                 .vendorChangePercentage(0.0) // Placeholder
                 .pendingInvoicesCount(currentPendingInvoices)
-                .pendingInvoicesChangePercentage(calculatePercentageChange(previousPendingInvoices, currentPendingInvoices))
-                .totalAmountReceivedFromClients(invoiceRepository.findTotalAmountReceivedSince(organizationId, thisMonthStart))
+                .pendingInvoicesChangePercentage(
+                        calculatePercentageChange(previousPendingInvoices, currentPendingInvoices))
+                .totalAmountReceivedFromClients(
+                        invoiceRepository.findTotalAmountReceivedSince(organizationId, thisMonthStart))
                 .totalAmountDueFromClients(invoiceRepository.findTotalAmountDue(organizationId))
-                .totalPaidToVendors(vendorPaymentRepository.findTotalPaidSince(organizationId, thisMonthStart.toLocalDate()))
-                .totalTransactions(transactionRepository.countByOrganizationIdAndTransactionDateAfter(organizationId, thisMonthStart))
+                .totalPaidToVendors(
+                        vendorPaymentRepository.findTotalPaidSince(organizationId, thisMonthStart.toLocalDate()))
+                .totalTransactions(transactionRepository.countByOrganizationIdAndTransactionDateAfter(organizationId,
+                        thisMonthStart))
                 .totalTransactionVolume(transactionRepository.findTotalVolumeSince(organizationId, thisMonthStart))
-                .recentTransactions(transactionRepository.findByOrganizationIdOrderByTransactionDateDesc(organizationId, recentTransactionsPageable)
+                .recentTransactions(transactionRepository
+                        .findByOrganizationIdOrderByTransactionDateDesc(organizationId, recentTransactionsPageable)
                         .getContent().stream().map(TransactionMapper::toDto).collect(Collectors.toList()))
                 .build();
     }
@@ -96,7 +104,8 @@ public class DashboardServiceImpl implements DashboardService {
 
         // 2. Find the latest payslip
         Optional<PayrollPayment> latestPaymentOpt = payrollPaymentRepository
-                .findFirstByEmployeeIdOrderByPayrollBatch_PayrollYearDescPayrollBatch_PayrollMonthDesc(employee.getId());
+                .findFirstByEmployeeIdOrderByPayrollBatch_PayrollYearDescPayrollBatch_PayrollMonthDesc(
+                        employee.getId());
 
         // 3. Create the builder, but DO NOT build it yet
         EmployeeDashboardDto.EmployeeDashboardDtoBuilder builder = EmployeeDashboardDto.builder()
@@ -147,11 +156,13 @@ public class DashboardServiceImpl implements DashboardService {
         BigDecimal totalDebits = transactionRepository.findTotalDebitsByOrganizationId(organizationId);
         long totalTransactions = transactionRepository.countByOrganizationId(organizationId);
 
-        LocalDateTime firstTxDate = transactionRepository.findFirstByOrganizationIdOrderByTransactionDateAsc(organizationId)
+        LocalDateTime firstTxDate = transactionRepository
+                .findFirstByOrganizationIdOrderByTransactionDateAsc(organizationId)
                 .map(Transaction::getTransactionDate)
                 .orElse(null);
 
-        LocalDateTime lastTxDate = transactionRepository.findFirstByOrganizationIdOrderByTransactionDateDesc(organizationId)
+        LocalDateTime lastTxDate = transactionRepository
+                .findFirstByOrganizationIdOrderByTransactionDateDesc(organizationId)
                 .map(Transaction::getTransactionDate)
                 .orElse(null);
 
@@ -167,7 +178,6 @@ public class DashboardServiceImpl implements DashboardService {
                 .lastTransactionDate(lastTxDate)
                 .build();
     }
-
 
     private double calculatePercentageChange(double previous, double current) {
         if (previous == 0) {
@@ -186,16 +196,20 @@ public class DashboardServiceImpl implements DashboardService {
         long pending = organizationRepository.countByStatus(OrganizationStatus.PENDING_APPROVAL);
         long suspended = organizationRepository.countByStatus(OrganizationStatus.SUSPENDED);
 
-        LocalDateTime twelveMonthsAgo = LocalDateTime.now().minusMonths(11).withDayOfMonth(1).toLocalDate().atStartOfDay();
+        LocalDateTime twelveMonthsAgo = LocalDateTime.now().minusMonths(11).withDayOfMonth(1).toLocalDate()
+                .atStartOfDay();
         LocalDateTime thisMonthStart = LocalDateTime.now().withDayOfMonth(1).truncatedTo(ChronoUnit.DAYS);
         LocalDateTime prevMonthStart = thisMonthStart.minusMonths(1);
 
-        long totalOrganizationsBeforeThisMonth = organizationRepository.countByCreatedAtBetween(prevMonthStart, thisMonthStart);
-        long newOrganizationsThisMonth = organizationRepository.countByCreatedAtBetween(thisMonthStart, LocalDateTime.now());
+        long totalOrganizationsBeforeThisMonth = organizationRepository.countByCreatedAtBetween(prevMonthStart,
+                thisMonthStart);
+        long newOrganizationsThisMonth = organizationRepository.countByCreatedAtBetween(thisMonthStart,
+                LocalDateTime.now());
         long totalAtStartOfMonth = total - newOrganizationsThisMonth;
 
         // --- CHART DATA (Existing + Modified) ---
-        List<Map<String, Object>> growthDataRaw = organizationRepository.getMonthlyOrganizationGrowthSince(twelveMonthsAgo);
+        List<Map<String, Object>> growthDataRaw = organizationRepository
+                .getMonthlyOrganizationGrowthSince(twelveMonthsAgo);
 
         // --- MAPPING LOGIC FOR GROWTH CHART ---
         List<BankAdminDashboardStatsDto.OrganizationGrowthDataPoint> growthData = growthDataRaw.stream()
@@ -210,7 +224,8 @@ public class DashboardServiceImpl implements DashboardService {
                 })
                 .collect(Collectors.toList());
 
-        List<Map<String, Object>> volumeDataRaw = transactionRepository.getMonthlyTransactionVolumeSince(twelveMonthsAgo);
+        List<Map<String, Object>> volumeDataRaw = transactionRepository
+                .getMonthlyTransactionVolumeSince(twelveMonthsAgo);
 
         // --- MAPPING LOGIC FOR VOLUME CHART ---
         List<BankAdminDashboardStatsDto.TransactionVolumeDataPoint> volumeData = volumeDataRaw.stream()
@@ -245,9 +260,64 @@ public class DashboardServiceImpl implements DashboardService {
             monthlyVolumePercentage = 100.0;
         }
 
+        // --- NEW: PAYROLL TRENDS DATA ---
+        List<Map<String, Object>> payrollDataRaw = payrollBatchRepository
+                .getMonthlyPayrollTotalsSince(twelveMonthsAgo);
+
+        List<BankAdminDashboardStatsDto.PayrollTrendDataPoint> payrollData = payrollDataRaw.stream()
+                .map(row -> {
+                    Integer year = ((Number) row.get("year")).intValue();
+                    Integer month = ((Number) row.get("month")).intValue();
+                    String monthName = Month.of(month).name().substring(0, 3);
+                    String shortYear = String.valueOf(year).substring(2); // Get last 2 digits
+                    BigDecimal totalAmount = new BigDecimal(row.get("totalAmount").toString());
+                    return BankAdminDashboardStatsDto.PayrollTrendDataPoint.builder()
+                            .name(monthName + "'" + shortYear)
+                            .value(totalAmount)
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        double monthlyPayrollPercentage = 0.0;
+        if (payrollData.size() >= 2) {
+            double lastMonthPayroll = payrollData.get(payrollData.size() - 2).getValue().doubleValue();
+            double thisMonthPayroll = payrollData.get(payrollData.size() - 1).getValue().doubleValue();
+            monthlyPayrollPercentage = calculatePercentageChange(lastMonthPayroll, thisMonthPayroll);
+        } else if (payrollData.size() == 1) {
+            monthlyPayrollPercentage = 100.0;
+        }
+
+        // --- NEW: TRANSACTION COUNT DATA (System Activity) ---
+        List<Map<String, Object>> countDataRaw = transactionRepository
+                .getMonthlyTransactionCountSince(twelveMonthsAgo);
+
+        List<BankAdminDashboardStatsDto.TransactionCountDataPoint> countData = countDataRaw.stream()
+                .map(row -> {
+                    Integer year = ((Number) row.get("year")).intValue();
+                    Integer month = ((Number) row.get("month")).intValue();
+                    String monthName = Month.of(month).name().substring(0, 3);
+                    String shortYear = String.valueOf(year).substring(2);
+                    Long count = ((Number) row.get("count")).longValue();
+                    return BankAdminDashboardStatsDto.TransactionCountDataPoint.builder()
+                            .name(monthName + "'" + shortYear)
+                            .value(count)
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        double monthlyCountPercentage = 0.0;
+        if (countData.size() >= 2) {
+            double lastMonthCount = countData.get(countData.size() - 2).getValue().doubleValue();
+            double thisMonthCount = countData.get(countData.size() - 1).getValue().doubleValue();
+            monthlyCountPercentage = calculatePercentageChange(lastMonthCount, thisMonthCount);
+        } else if (countData.size() == 1) {
+            monthlyCountPercentage = 100.0;
+        }
+
         return BankAdminDashboardStatsDto.builder()
                 .totalOrganizations(total)
-                .organizationGrowthPercentage(calculatePercentageChange(totalAtStartOfMonth, total)) // Dynamic percentage
+                .organizationGrowthPercentage(calculatePercentageChange(totalAtStartOfMonth, total)) // Dynamic
+                                                                                                     // percentage
                 .activeOrganizations(active)
                 .pendingOrganizations(pending)
                 .suspendedOrganizations(suspended)
@@ -255,6 +325,11 @@ public class DashboardServiceImpl implements DashboardService {
                 .transactionVolume(volumeData)
                 .monthlyOrganizationGrowthPercentage(monthlyGrowthPercentage)
                 .monthlyTransactionVolumePercentage(monthlyVolumePercentage)
+                // NEW fields
+                .payrollTrends(payrollData)
+                .monthlyPayrollPercentage(monthlyPayrollPercentage)
+                .transactionCounts(countData)
+                .monthlyTransactionCountPercentage(monthlyCountPercentage)
                 .build();
     }
 

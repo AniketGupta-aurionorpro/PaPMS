@@ -19,6 +19,7 @@ public class InvoiceResponseDto {
     private Integer id;
     private String invoiceNumber;
     private BigDecimal amount;
+    private BigDecimal paidAmount;
     private LocalDate issueDate;
     private LocalDate dueDate;
     private InvoiceStatus status;
@@ -30,4 +31,5 @@ public class InvoiceResponseDto {
     private Integer clientId;
     private String clientCompanyName;
     private String clientContactPerson;
+    private String clientEmail;
 }

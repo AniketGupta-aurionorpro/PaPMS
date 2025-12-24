@@ -22,9 +22,20 @@ public class CloudinaryServiceImpl implements CloudinaryService {
     public Map<String, String> uploadFile(MultipartFile file, String folderName) {
         log.info("Uploading file '{}' to Cloudinary folder '{}'", file.getOriginalFilename(), folderName);
         try {
+            // Determine resource type based on content type
+            String contentType = file.getContentType();
+            String resourceType = "auto"; // Default to auto
+
+            // PDFs and other documents should use "raw" resource type
+            if (contentType != null && contentType.equals("application/pdf")) {
+                resourceType = "raw";
+            }
+
             Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap(
                     "folder", folderName,
-                    "original_filename", file.getOriginalFilename()
+                    "original_filename", file.getOriginalFilename(),
+                    "resource_type", resourceType,
+                    "type", "upload" // FIX: Make files publicly accessible
             ));
 
             String url = (String) uploadResult.get("secure_url");
@@ -34,8 +45,7 @@ public class CloudinaryServiceImpl implements CloudinaryService {
 
             return Map.of(
                     "url", url,
-                    "public_id", publicId
-            );
+                    "public_id", publicId);
         } catch (IOException e) {
             log.error("Could not upload file '{}' to Cloudinary.", file.getOriginalFilename(), e);
             throw new RuntimeException("Could not upload file to Cloudinary", e);

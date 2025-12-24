@@ -19,12 +19,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.UUID;
 import com.aurionpro.papms.service.NotificationService;
 import com.aurionpro.papms.emails.EmailService;
 
@@ -41,7 +41,7 @@ public class VendorServiceImpl implements VendorService {
     private final BillService billService;
     private final EmailService emailService;
     private final NotificationService notificationService;
-
+    private final PasswordEncoder passwordEncoder;
 
     private User getLoggedInUser() {
         String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -56,14 +56,44 @@ public class VendorServiceImpl implements VendorService {
         Organization organization = organizationRepository.findById(currentUser.getOrganizationId())
                 .orElseThrow(() -> new NotFoundException("Organization not found for the current user."));
 
-        if (vendorRepository.existsByVendorNameAndOrganizationId(request.getVendorName(), currentUser.getOrganizationId())) {
+        if (vendorRepository.existsByVendorNameAndOrganizationId(request.getVendorName(),
+                currentUser.getOrganizationId())) {
             throw new DuplicateUserException("A vendor with this name already exists for your organization.");
         }
 
+        // Check if email is already used
+        if (userRepository.existsByEmail(request.getContactEmail())) {
+            throw new DuplicateUserException("A user with this email already exists.");
+        }
+
+        // Generate vendor login credentials
+        String generatedUsername = generateVendorUsername(request.getVendorName(), organization.getCompanyName());
+        String generatedPassword = generateRandomPassword();
+
+        // Create User account for vendor login
+        User vendorUser = User.builder()
+                .username(generatedUsername)
+                .password(passwordEncoder.encode(generatedPassword))
+                .email(request.getContactEmail())
+                .fullName(request.getVendorName())
+                .role(Role.VENDOR)
+                .organizationId(organization.getId())
+                .isActive(true)
+                .requiresPasswordChange(true)
+                .build();
+        User savedUser = userRepository.save(vendorUser);
+
+        // Create Vendor entity linked to user
         Vendor newVendor = VendorMapper.toEntity(request, organization);
         newVendor.setContactPhone(request.getContactPhone());
+        newVendor.setUser(savedUser);
+        newVendor.setAccountHolderName(request.getAccountHolderName());
+        newVendor.setAccountNumber(request.getAccountNumber());
+        newVendor.setBankName(request.getBankName());
+        newVendor.setIfscCode(request.getIfscCode());
         Vendor savedVendor = vendorRepository.save(newVendor);
 
+        // Create bank account record
         BankAccount bankAccount = BankAccount.builder()
                 .vendor(savedVendor)
                 .ownerType(OwnerType.VENDOR)
@@ -74,12 +104,53 @@ public class VendorServiceImpl implements VendorService {
                 .isPrimary(true)
                 .build();
         bankAccountRepository.save(bankAccount);
-        String message = String.format("You successfully added a new vendor: %s.", savedVendor.getVendorName());
-        String link = String.format("/vendors/%d", savedVendor.getId()); // Frontend link to the new vendor's details page
+
+        // Send credentials email to vendor
+        sendVendorCredentialsEmail(request.getContactEmail(), request.getVendorName(),
+                generatedUsername, generatedPassword, organization.getCompanyName());
+
+        // Create notification for org admin
+        String message = String.format("You successfully added a new vendor: %s. Login credentials sent to %s.",
+                savedVendor.getVendorName(), request.getContactEmail());
+        String link = String.format("/vendors/%d", savedVendor.getId());
         notificationService.createNotification(currentUser, message, link);
+
         return VendorMapper.toDto(savedVendor, bankAccount);
     }
 
+    private String generateVendorUsername(String vendorName, String orgName) {
+        String base = vendorName.toLowerCase().replaceAll("[^a-z0-9]", "").substring(0,
+                Math.min(vendorName.length(), 10));
+        String orgPart = orgName.toLowerCase().replaceAll("[^a-z0-9]", "").substring(0, Math.min(orgName.length(), 5));
+        String unique = UUID.randomUUID().toString().substring(0, 4);
+        return "v_" + base + "_" + orgPart + "_" + unique;
+    }
+
+    private String generateRandomPassword() {
+        return UUID.randomUUID().toString().substring(0, 12);
+    }
+
+    private void sendVendorCredentialsEmail(String email, String vendorName, String username, String password,
+            String orgName) {
+        String subject = "Your Vendor Portal Login Credentials - " + orgName;
+        String body = "<html><body>"
+                + "<h2>Welcome to the Vendor Portal</h2>"
+                + "<p>Dear " + vendorName + ",</p>"
+                + "<p>You have been registered as a vendor by <strong>" + orgName + "</strong>.</p>"
+                + "<p>You can now login to the Vendor Portal to create bills and track payments.</p>"
+                + "<hr>"
+                + "<h3>Your Login Credentials:</h3>"
+                + "<ul>"
+                + "<li><strong>Username:</strong> " + username + "</li>"
+                + "<li><strong>Password:</strong> " + password + "</li>"
+                + "</ul>"
+                + "<p style='color: #e74c3c;'><strong>Important:</strong> Please change your password after first login.</p>"
+                + "<hr>"
+                + "<p>Login URL: <a href='http://localhost:4500/auth/login'>Click here to login</a></p>"
+                + "</body></html>";
+
+        emailService.sendEmail("no-reply@papms.com", email, subject, body);
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -95,11 +166,11 @@ public class VendorServiceImpl implements VendorService {
 
         BankAccount bankAccount = bankAccountRepository
                 .findByVendorIdAndIsPrimaryTrue(vendor.getId())
-                .orElse(null); // It's possible a bank account might not exist, though unlikely with current logic
+                .orElse(null); // It's possible a bank account might not exist, though unlikely with current
+                               // logic
 
         return VendorMapper.toDto(vendor, bankAccount);
     }
-
 
     @Override
     @Transactional(readOnly = true)
@@ -121,25 +192,28 @@ public class VendorServiceImpl implements VendorService {
             return VendorMapper.toDto(vendor, bankAccount);
         });
     }
-//    @Override
-//    @Transactional(readOnly = true)
-//    public List<VendorResponse> getVendorsByOrganization(Integer organizationId) {
-//        User currentUser = getLoggedInUser();
-//
-//        // Security Check: Ensure the user is requesting vendors for their own organization
-//        if (!currentUser.getOrganizationId().equals(organizationId)) {
-//            throw new SecurityException("You can only view vendors for your own organization.");
-//        }
-//
-//        return vendorRepository.findByOrganizationId(organizationId).stream()
-//                .map(vendor -> {
-//                    BankAccount bankAccount = bankAccountRepository
-//                            .findByOwnerIdAndOwnerTypeAndIsPrimaryTrue(vendor.getId(), OwnerType.VENDOR)
-//                            .orElse(null);
-//                    return VendorMapper.toDto(vendor, bankAccount);
-//                })
-//                .collect(Collectors.toList());
-//    }
+    // @Override
+    // @Transactional(readOnly = true)
+    // public List<VendorResponse> getVendorsByOrganization(Integer organizationId)
+    // {
+    // User currentUser = getLoggedInUser();
+    //
+    // // Security Check: Ensure the user is requesting vendors for their own
+    // organization
+    // if (!currentUser.getOrganizationId().equals(organizationId)) {
+    // throw new SecurityException("You can only view vendors for your own
+    // organization.");
+    // }
+    //
+    // return vendorRepository.findByOrganizationId(organizationId).stream()
+    // .map(vendor -> {
+    // BankAccount bankAccount = bankAccountRepository
+    // .findByOwnerIdAndOwnerTypeAndIsPrimaryTrue(vendor.getId(), OwnerType.VENDOR)
+    // .orElse(null);
+    // return VendorMapper.toDto(vendor, bankAccount);
+    // })
+    // .collect(Collectors.toList());
+    // }
 
     @Override
     @Transactional
@@ -157,7 +231,8 @@ public class VendorServiceImpl implements VendorService {
 
         BankAccount bankAccount = bankAccountRepository
                 .findByVendorIdAndIsPrimaryTrue(vendor.getId())
-                .orElseThrow(() -> new NotFoundException("Primary bank account not found for this vendor. Cannot update details."));
+                .orElseThrow(() -> new NotFoundException(
+                        "Primary bank account not found for this vendor. Cannot update details."));
 
         bankAccount.setAccountHolderName(request.getAccountHolderName());
         bankAccount.setAccountNumber(request.getAccountNumber());
@@ -215,18 +290,19 @@ public class VendorServiceImpl implements VendorService {
         VendorPayment savedPayment = vendorPaymentRepository.save(payment);
 
         try {
-            //  Process the debit from the organization's account.
+            // Process the debit from the organization's account.
             // This will throw an exception if funds are insufficient.
             String transactionDesc = "Payment to vendor: " + vendor.getVendorName();
-            Transaction transaction = transactionService.processDebit(organization, request.getAmount(), transactionDesc, TransactionSourceType.VENDOR_PAYMENT, savedPayment.getId());
+            Transaction transaction = transactionService.processDebit(organization, request.getAmount(),
+                    transactionDesc, TransactionSourceType.VENDOR_PAYMENT, savedPayment.getId());
 
-            //  If debit is successful, update the payment status to PROCESSED.
+            // If debit is successful, update the payment status to PROCESSED.
             savedPayment.setStatus(PaymentStatus.PROCESSED);
             savedPayment.setTransactionId(transaction.getId());
             vendorPaymentRepository.save(savedPayment);
 
-            //  Generate a "bill" which acts as a historical record/receipt for this payment.
-            //billService.generateBillForPayment(savedPayment);
+            // Generate a "bill" which acts as a historical record/receipt for this payment.
+            // billService.generateBillForPayment(savedPayment);
             // MODIFIED: Pass the fully loaded organization and vendor objects
             billService.generateBillForPayment(savedPayment, organization, vendor);
 
@@ -242,7 +318,8 @@ public class VendorServiceImpl implements VendorService {
             savedPayment.setStatus(PaymentStatus.FAILED);
             vendorPaymentRepository.save(savedPayment);
 
-            // Re-throw the exception so the controller advice can handle it and inform the user.
+            // Re-throw the exception so the controller advice can handle it and inform the
+            // user.
             throw new RuntimeException("Payment processing failed: " + e.getMessage(), e);
         }
     }
@@ -252,16 +329,22 @@ public class VendorServiceImpl implements VendorService {
                 + "<body>"
                 + "<h2>Payment Advice</h2>"
                 + "<p>Dear " + vendor.getVendorName() + ",</p>"
-                + "<p>This is to inform you that a payment has been processed by <strong>" + org.getCompanyName() + "</strong>.</p>"
+                + "<p>This is to inform you that a payment has been processed by <strong>" + org.getCompanyName()
+                + "</strong>.</p>"
                 + "<hr>"
                 + "<h3>Payment Details:</h3>"
                 + "<ul>"
-                + "<li><strong>Payment Date:</strong> " + payment.getPaymentDate().format(DateTimeFormatter.ofPattern("dd-MMM-yyyy")) + "</li>"
+                + "<li><strong>Payment Date:</strong> "
+                + payment.getPaymentDate().format(DateTimeFormatter.ofPattern("dd-MMM-yyyy")) + "</li>"
                 + "<li><strong>Amount:</strong> " + payment.getAmount().toString() + "</li>"
-                + "<li><strong>Description:</strong> " + (payment.getDescription() != null && !payment.getDescription().isBlank() ? payment.getDescription() : "N/A") + "</li>"
+                + "<li><strong>Description:</strong> "
+                + (payment.getDescription() != null && !payment.getDescription().isBlank() ? payment.getDescription()
+                        : "N/A")
+                + "</li>"
                 + "</ul>"
                 + "<hr>"
-                + "<p>This is an automated notification. Please contact " + org.getCompanyName() + " directly for any queries.</p>"
+                + "<p>This is an automated notification. Please contact " + org.getCompanyName()
+                + " directly for any queries.</p>"
                 + "</body>"
                 + "</html>";
     }

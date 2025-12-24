@@ -12,12 +12,18 @@ import java.util.Optional;
 public interface AppUserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByEmail(String email);
+
     Optional<User> findByUsername(String username);
+
     boolean existsByUsername(String username);
+
+    boolean existsByEmail(String email); // NEW: For real-time email validation
+
     Long countUserByRoleEquals(Role role);
+
     List<User> findByOrganizationId(Integer organizationId);
 
     @Query("SELECT u FROM User u WHERE u.organizationId = :organizationId AND u.role = :role")
     List<User> findByOrganizationIdAndRole(@Param("organizationId") Integer organizationId,
-                                           @Param("role") Role role);
+            @Param("role") Role role);
 }

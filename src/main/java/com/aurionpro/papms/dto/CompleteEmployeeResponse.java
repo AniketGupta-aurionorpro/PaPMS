@@ -36,6 +36,8 @@ public class CompleteEmployeeResponse {
 
     private LocalDateTime createdAt;
 
+    private LocalDateTime deletionScheduledAt;
+
     @Data
     public static class BankAccountResponse {
         private Integer id;

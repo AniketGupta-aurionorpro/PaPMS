@@ -1,5 +1,6 @@
 package com.aurionpro.papms.controller;
 
+import com.aurionpro.papms.Enum.TransactionSourceType; // NEW IMPORT
 import com.aurionpro.papms.Enum.TransactionType;
 import com.aurionpro.papms.dto.TransactionDto;
 import com.aurionpro.papms.service.TransactionExcelReportService;
@@ -22,6 +23,9 @@ import org.springframework.web.bind.annotation.*;
 import java.io.IOException;
 import java.time.LocalDate;
 
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.SortDefault;
+
 @RestController
 @RequestMapping("/api/organizations/{organizationId}/transactions")
 @RequiredArgsConstructor
@@ -30,31 +34,29 @@ import java.time.LocalDate;
 public class TransactionController {
 
     private final TransactionService transactionService;
-    private final TransactionExcelReportService transactionExcelReportService; // INJECT THE NEW SERVICE
+    private final TransactionExcelReportService transactionExcelReportService;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ORG_ADMIN', 'BANK_ADMIN')")
     @Operation(summary = "Get a paginated and filtered list of all transactions for an organization")
     public ResponseEntity<Page<TransactionDto>> getTransactions(
             @PathVariable Integer organizationId,
-            @ParameterObject Pageable pageable,
-            // --- NEW FILTER PARAMETERS ---
+            @ParameterObject @SortDefault(sort = "transactionDate", direction = Sort.Direction.DESC) Pageable pageable,
             @RequestParam(required = false) String searchTerm,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-            @RequestParam(required = false) TransactionType type) {
+            @RequestParam(required = false) TransactionType type,
+            @RequestParam(required = false) TransactionSourceType sourceType) { // NEW PARAMETER
 
         Page<TransactionDto> transactions = transactionService.getTransactionsForOrganization(
-                organizationId, searchTerm, startDate, endDate, type, pageable);
+                organizationId, searchTerm, startDate, endDate, type, sourceType, pageable); // PASS NEW PARAMETER
 
         return ResponseEntity.ok(transactions);
     }
 
-    // ADD THIS NEW ENDPOINT
     @GetMapping("/download/excel")
     @PreAuthorize("hasAnyRole('ORG_ADMIN', 'BANK_ADMIN')")
-    @Operation(summary = "Download transaction history as an Excel file",
-            description = "Generates and downloads an Excel spreadsheet containing all transactions for the specified organization.")
+    @Operation(summary = "Download transaction history as an Excel file", description = "Generates and downloads an Excel spreadsheet containing all transactions for the specified organization.")
     public ResponseEntity<byte[]> downloadTransactionReport(
             @PathVariable Integer organizationId) throws IOException {
 
@@ -63,7 +65,6 @@ public class TransactionController {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-        // This header tells the browser to download the file with a specific name
         headers.setContentDispositionFormData("attachment", "transactions-org-" + organizationId + ".xlsx");
 
         return new ResponseEntity<>(excelBytes, headers, HttpStatus.OK);

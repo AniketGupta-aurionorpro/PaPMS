@@ -22,14 +22,15 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import com.aurionpro.papms.service.EmployeeService;
 import com.aurionpro.papms.entity.Organization;
 import com.aurionpro.papms.repository.OrganizationRepository;
-
 
 import lombok.RequiredArgsConstructor;
 
@@ -57,18 +58,22 @@ public class AuthController {
             log.warn("Registration failed: Username {} already exists.", req.username());
             return ResponseEntity.status(HttpStatus.CONFLICT).body("Username already exists");
         }
-        if(req.role() == Role.BANK_ADMIN) {
+        if (req.role() == Role.BANK_ADMIN) {
             Long count = userRepo.countUserByRoleEquals(Role.BANK_ADMIN);
-            if(count > 0) {
+            if (count > 0) {
                 log.warn("Registration for BANK_ADMIN failed: A BANK_ADMIN already exists.");
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Only one BANK_ADMIN allowed");
             }
-            User u = User.builder().username(req.username()).password(encoder.encode(req.password())).fullName(req.fullName()).email(req.email()).role(req.role()).organizationId(null).isActive(true).build();
+            User u = User.builder().username(req.username()).password(encoder.encode(req.password()))
+                    .fullName(req.fullName()).email(req.email()).role(req.role()).organizationId(null).isActive(true)
+                    .build();
             userRepo.save(u);
             log.info("Successfully registered BANK_ADMIN user: {}", req.username());
             return ResponseEntity.status(HttpStatus.CREATED).build();
         }
-        User u = User.builder().username(req.username()).password(encoder.encode(req.password())).fullName(req.fullName()).email(req.email()).role(req.role()).organizationId(req.organizationId()).isActive(true).build();
+        User u = User.builder().username(req.username()).password(encoder.encode(req.password()))
+                .fullName(req.fullName()).email(req.email()).role(req.role()).organizationId(req.organizationId())
+                .isActive(true).build();
         userRepo.save(u);
         log.info("Successfully registered user: {} with role: {}", req.username(), req.role());
         return ResponseEntity.status(HttpStatus.CREATED).build();
@@ -104,7 +109,8 @@ public class AuthController {
             case EMPLOYEE:
                 log.debug("Fetching employee profile for user: {}", user.getUsername());
                 // For employees, fetch and attach the complete profile
-                CompleteEmployeeResponse employeeProfile = employeeService.getCompleteEmployeeProfileByUsername(user.getUsername());
+                CompleteEmployeeResponse employeeProfile = employeeService
+                        .getCompleteEmployeeProfileByUsername(user.getUsername());
                 responseBuilder.employeeProfile(employeeProfile);
                 // Also add organization details
                 if (user.getOrganizationId() != null) {
@@ -135,6 +141,7 @@ public class AuthController {
         log.info("Login successful for user: {}. Role: {}", user.getUsername(), user.getRole());
         return ResponseEntity.ok(responseBuilder.build());
     }
+
     @PostMapping("/force-change-password")
     public ResponseEntity<String> forceChangePassword(@Valid @RequestBody ForceChangePasswordRequest request) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -151,7 +158,8 @@ public class AuthController {
 
         if (!user.getRequiresPasswordChange()) {
             log.warn("Force password change for user {} rejected: Not required.", username);
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("This endpoint is only for initial password change.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("This endpoint is only for initial password change.");
         }
 
         user.setPassword(encoder.encode(request.getNewPassword()));
@@ -166,8 +174,10 @@ public class AuthController {
     public ResponseEntity<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         log.info("Received forgot password request for email: {}", request.getEmail());
         passwordResetService.handleForgotPasswordRequest(request);
-        // SECURITY: Always return a generic success message to prevent user enumeration attacks.
-        log.info("Forgot password process initiated for email: {}. No confirmation of existence provided to client.", request.getEmail());
+        // SECURITY: Always return a generic success message to prevent user enumeration
+        // attacks.
+        log.info("Forgot password process initiated for email: {}. No confirmation of existence provided to client.",
+                request.getEmail());
         return ResponseEntity.ok("If an account with this email exists, a password reset link has been sent.");
     }
 
@@ -177,5 +187,27 @@ public class AuthController {
         passwordResetService.handleResetPassword(request);
         log.info("Password reset successful for token.");
         return ResponseEntity.ok("Password has been reset successfully.");
+    }
+
+    // ========== NEW: Real-time availability check endpoints ==========
+
+    @GetMapping("/check-username")
+    public ResponseEntity<AvailabilityResponse> checkUsername(@RequestParam String username) {
+        boolean exists = userRepo.existsByUsername(username);
+        log.debug("Username availability check: '{}' exists={}", username, exists);
+        return ResponseEntity
+                .ok(new AvailabilityResponse(!exists, exists ? "Username is already taken" : "Username is available"));
+    }
+
+    @GetMapping("/check-email")
+    public ResponseEntity<AvailabilityResponse> checkEmail(@RequestParam String email) {
+        boolean exists = userRepo.existsByEmail(email);
+        log.debug("Email availability check: '{}' exists={}", email, exists);
+        return ResponseEntity
+                .ok(new AvailabilityResponse(!exists, exists ? "Email is already registered" : "Email is available"));
+    }
+
+    // Simple response DTO for availability checks
+    public record AvailabilityResponse(boolean available, String message) {
     }
 }

@@ -32,9 +32,8 @@ public class ClientMapper {
         return Client.builder()
                 .user(user)
                 .organization(organization)
-                .companyName(dto.getCompanyName())
-                .contactPerson(dto.getContactPerson())
-                .isActive(true)
+                .clientName(dto.getCompanyName())
+                .contactEmail(dto.getEmail())
                 .build();
     }
 
@@ -45,10 +44,10 @@ public class ClientMapper {
         User user = client.getUser();
         Organization org = client.getOrganization();
         return ClientResponseDto.builder()
-                .clientId(client.getId())
-                .companyName(client.getCompanyName())
-                .contactPerson(client.getContactPerson())
-                .isClientActive(client.isActive())
+                .clientId(client.getId().intValue())
+                .companyName(client.getClientName())
+                .contactPerson(client.getClientName())
+                .isClientActive(client.getStatus() != null && client.getStatus().name().equals("ACTIVE"))
                 .userId(user.getId())
                 .username(user.getUsername())
                 .email(user.getEmail())

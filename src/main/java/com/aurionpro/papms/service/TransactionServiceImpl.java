@@ -1,4 +1,3 @@
-// service/TransactionServiceImpl.java
 package com.aurionpro.papms.service;
 
 import com.aurionpro.papms.Enum.OrganizationStatus;
@@ -13,9 +12,10 @@ import com.aurionpro.papms.mapper.TransactionMapper;
 import com.aurionpro.papms.repository.AppUserRepository;
 import com.aurionpro.papms.repository.OrganizationRepository;
 import com.aurionpro.papms.repository.TransactionRepository;
+import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j; // ADDED
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -31,12 +31,67 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j // ADDED
+@Slf4j
 public class TransactionServiceImpl implements TransactionService {
     private final OrganizationRepository organizationRepository;
     private final TransactionRepository transactionRepository;
     private final AppUserRepository userRepository;
 
+    // ... processDebit and processCredit methods remain unchanged ...
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TransactionDto> getTransactionsForOrganization(Integer organizationId, String searchTerm,
+                                                               LocalDate startDate, LocalDate endDate,
+                                                               TransactionType type, TransactionSourceType sourceType, Pageable pageable) {
+        User currentUser = getLoggedInUser();
+
+        if (currentUser.getRole() == Role.ORG_ADMIN && !currentUser.getOrganizationId().equals(organizationId)) {
+            log.warn("SECURITY ALERT: User {} (ORG_ADMIN) attempted to access transactions for organization {}",
+                    currentUser.getUsername(), organizationId);
+            throw new SecurityException("You are not authorized to view transactions for this organization.");
+        }
+
+        log.info("Fetching transactions for org ID {} with filters - Search: '{}', Type: {}, SourceType: {}, Start: {}, End: {}",
+                organizationId, searchTerm, type, sourceType, startDate, endDate);
+
+        Specification<Transaction> spec = (root, query, criteriaBuilder) -> {
+            if (query.getResultType() != Long.class && query.getResultType() != long.class) {
+                root.fetch("organization", JoinType.LEFT);
+                query.distinct(true);
+            }
+
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(criteriaBuilder.equal(root.get("organization").get("id"), organizationId));
+
+            if (searchTerm != null && !searchTerm.isBlank()) {
+                predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("description")), "%" + searchTerm.toLowerCase() + "%"));
+            }
+            if (type != null) {
+                predicates.add(criteriaBuilder.equal(root.get("transactionType"), type));
+            }
+
+            // FIX: ADD THIS BLOCK TO FILTER BY SOURCE TYPE
+            if (sourceType != null) {
+                predicates.add(criteriaBuilder.equal(root.get("sourceType"), sourceType));
+            }
+            // END FIX
+
+            if (startDate != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("transactionDate"), startDate.atStartOfDay()));
+            }
+            if (endDate != null) {
+                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("transactionDate"), endDate.atTime(23, 59, 59)));
+            }
+
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<Transaction> transactionPage = transactionRepository.findAll(spec, pageable);
+        return transactionPage.map(TransactionMapper::toDto);
+    }
+
+    // ... other helper methods remain unchanged ...
     @Override
     @Transactional
     public Transaction processDebit(Organization organization, BigDecimal amount,
@@ -94,48 +149,6 @@ public class TransactionServiceImpl implements TransactionService {
 
         return transactionRepository.save(transaction);
     }
-
-    @Override
-    @Transactional(readOnly = true)
-    public Page<TransactionDto> getTransactionsForOrganization(Integer organizationId, String searchTerm,
-                                                               LocalDate startDate, LocalDate endDate,
-                                                               TransactionType type, Pageable pageable) {
-        User currentUser = getLoggedInUser();
-
-        if (currentUser.getRole() == Role.ORG_ADMIN && !currentUser.getOrganizationId().equals(organizationId)) {
-            log.warn("SECURITY ALERT: User {} (ORG_ADMIN) attempted to access transactions for organization {}",
-                    currentUser.getUsername(), organizationId);
-            throw new SecurityException("You are not authorized to view transactions for this organization.");
-        }
-
-        log.info("Fetching transactions for org ID {} with filters - Search: '{}', Type: {}, Start: {}, End: {}",
-                organizationId, searchTerm, type, startDate, endDate);
-
-        // --- DYNAMIC QUERY USING SPECIFICATIONS ---
-        Specification<Transaction> spec = (root, query, criteriaBuilder) -> {
-            List<Predicate> predicates = new ArrayList<>();
-            predicates.add(criteriaBuilder.equal(root.get("organization").get("id"), organizationId));
-
-            if (searchTerm != null && !searchTerm.isBlank()) {
-                predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("description")), "%" + searchTerm.toLowerCase() + "%"));
-            }
-            if (type != null) {
-                predicates.add(criteriaBuilder.equal(root.get("transactionType"), type));
-            }
-            if (startDate != null) {
-                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("transactionDate"), startDate.atStartOfDay()));
-            }
-            if (endDate != null) {
-                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("transactionDate"), endDate.atTime(23, 59, 59)));
-            }
-
-            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
-        };
-        // --- END DYNAMIC QUERY ---
-
-        Page<Transaction> transactionPage = transactionRepository.findAll(spec, pageable);
-        return transactionPage.map(TransactionMapper::toDto);
-    }
     private User getLoggedInUser() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByUsername(username)
@@ -148,5 +161,4 @@ public class TransactionServiceImpl implements TransactionService {
             throw new IllegalStateException("Transactions are not permitted for organizations with status: " + organization.getStatus());
         }
     }
-
 }

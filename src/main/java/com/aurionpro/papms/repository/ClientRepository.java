@@ -14,28 +14,27 @@ public interface ClientRepository extends JpaRepository<Client, Integer> {
 
     /**
      * Finds all clients associated with a specific organization.
-     *
-     * @param organizationId The ID of the organization.
-     * @return A list of clients for the given organization.
      */
-    //List<Client> findByOrganizationId(Integer organizationId);
-// MODIFIED: This method now supports pagination
+    List<Client> findByOrganizationId(Integer organizationId);
+
+    /**
+     * Finds all clients for organization with pagination.
+     */
     Page<Client> findByOrganizationId(Integer organizationId, Pageable pageable);
 
     /**
      * Finds a client by their associated user ID.
-     *
-     * @param userId The ID of the user.
-     * @return An Optional containing the client if found.
      */
     Optional<Client> findByUserId(Long userId);
 
     /**
-     * Checks if a client with the given company name already exists for a specific organization.
-     *
-     * @param companyName    The company name to check.
-     * @param organizationId The ID of the organization.
-     * @return true if a client with that name exists for the organization, false otherwise.
+     * Checks if a client with the given client name already exists for a specific
+     * organization.
      */
-    boolean existsByCompanyNameAndOrganizationId(String companyName, Integer organizationId);
+    boolean existsByClientNameAndOrganizationId(String clientName, Integer organizationId);
+
+    /**
+     * Checks if a client with the given contact email already exists.
+     */
+    boolean existsByContactEmail(String email);
 }

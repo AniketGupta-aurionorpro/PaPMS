@@ -12,13 +12,12 @@ import java.util.Optional;
 @Repository
 public interface VendorBillRepository extends JpaRepository<VendorBill, Long> {
     List<VendorBill> findByOrganizationId(Integer organizationId);
+
+    List<VendorBill> findByVendorId(Long vendorId);
+
     Optional<VendorBill> findByIdAndOrganizationId(Long id, Integer organizationId);
 
-
-//    SELECT vb FROM VendorBill vb: Select the VendorBill entity.
-//    JOIN FETCH vb.organization: This is the key part. It tells Hibernate to fetch the organization associated with the bill in the same query.
-//    JOIN FETCH vb.vendor: We also fetch the vendor at the same time, as we need vendorName for the PDF.
-//    WHERE vb.id = :id AND vb.organization.id = :organizationId: The standard conditions to find the specific bill.
     @Query("SELECT vb FROM VendorBill vb JOIN FETCH vb.organization JOIN FETCH vb.vendor WHERE vb.id = :id AND vb.organization.id = :organizationId")
-    Optional<VendorBill> findByIdAndOrganizationIdWithDetails(@Param("id") Long id, @Param("organizationId") Integer organizationId);
+    Optional<VendorBill> findByIdAndOrganizationIdWithDetails(@Param("id") Long id,
+            @Param("organizationId") Integer organizationId);
 }

@@ -6,6 +6,8 @@ import com.aurionpro.papms.Enum.TransactionSourceType;
 import com.aurionpro.papms.dto.payroll.CreatePayrollRequest;
 import com.aurionpro.papms.dto.payroll.MyPayslipHistoryDto;
 import com.aurionpro.papms.dto.payroll.PayrollBatchResponse;
+import com.aurionpro.papms.dto.payroll.PayrollPreviewDto;
+import com.aurionpro.papms.dto.payroll.SalaryOverrideDto;
 import com.aurionpro.papms.entity.*;
 import com.aurionpro.papms.exception.NotFoundException;
 import com.aurionpro.papms.mapper.PayrollMapper;
@@ -23,7 +25,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.aurionpro.papms.Enum.Role; // ADD THIS IMPORT
+import com.aurionpro.papms.Enum.Role;
 import com.aurionpro.papms.dto.payroll.PayrollPaymentResponse;
 import com.aurionpro.papms.repository.PayrollPaymentRepository;
 
@@ -48,6 +50,68 @@ public class PayrollServiceImpl implements PayrollService {
     private final PayrollPaymentRepository payrollPaymentRepository;
 
     @Override
+    @Transactional(readOnly = true)
+    public List<PayrollBatchResponse> getPayrollsByYear(Integer organizationId, int year) {
+        User currentUser = getLoggedInUser();
+        validateOrgAccess(currentUser, organizationId);
+        List<PayrollBatch> batches = payrollBatchRepository.findByOrganizationIdAndPayrollYear(organizationId, year);
+        return batches.stream().map(PayrollMapper::toDto).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PayrollPreviewDto> getPayrollPreview(Integer organizationId, Integer month, Integer year) {
+        User currentUser = getLoggedInUser();
+        validateOrgAccess(currentUser, organizationId);
+
+        // Check if payroll already exists for this month/year
+        if (payrollBatchRepository.existsByOrganizationIdAndPayrollMonthAndPayrollYear(organizationId, month, year)) {
+            throw new IllegalStateException("A payroll for this month and year already exists.");
+        }
+
+        List<Employee> activeEmployees = employeeRepository.findByOrganizationId(organizationId).stream()
+                .filter(Employee::getIsActive)
+                .toList();
+
+        if (activeEmployees.isEmpty()) {
+            throw new NotFoundException("No active employees found for this organization.");
+        }
+
+        List<PayrollPreviewDto> previews = new ArrayList<>();
+        for (Employee employee : activeEmployees) {
+            SalaryStructure salary = employee.getCurrentSalaryStructure();
+            if (salary == null) {
+                log.warn("Skipping employee {} in preview (no salary structure)", employee.getId());
+                continue;
+            }
+
+            BigDecimal totalEarnings = salary.getBasicSalary()
+                    .add(salary.getHra())
+                    .add(salary.getDa())
+                    .add(salary.getOtherAllowances());
+            BigDecimal totalDeductions = salary.getPfContribution();
+            BigDecimal netSalary = totalEarnings.subtract(totalDeductions);
+
+            previews.add(PayrollPreviewDto.builder()
+                    .employeeId(employee.getId())
+                    .employeeName(employee.getUser().getFullName())
+                    .employeeCode(employee.getEmployeeCode())
+                    .department(employee.getDepartment())
+                    .basicSalary(salary.getBasicSalary())
+                    .hra(salary.getHra())
+                    .da(salary.getDa())
+                    .otherAllowances(salary.getOtherAllowances())
+                    .pfContribution(salary.getPfContribution())
+                    .totalEarnings(totalEarnings)
+                    .totalDeductions(totalDeductions)
+                    .netSalary(netSalary)
+                    .build());
+        }
+
+        return previews;
+    }
+
+    @Override
     @Transactional
     public PayrollBatchResponse createPayroll(Integer organizationId, CreatePayrollRequest request) {
         User currentUser = getLoggedInUser();
@@ -65,6 +129,13 @@ public class PayrollServiceImpl implements PayrollService {
             throw new NotFoundException("No active employees found for this organization.");
         }
 
+        // Build a map of overrides for quick lookup
+        Map<Long, SalaryOverrideDto> overrideMap = Map.of();
+        if (request.getSalaryOverrides() != null && !request.getSalaryOverrides().isEmpty()) {
+            overrideMap = request.getSalaryOverrides().stream()
+                    .collect(Collectors.toMap(SalaryOverrideDto::getEmployeeId, o -> o));
+        }
+
         PayrollBatch batch = new PayrollBatch();
         batch.setOrganization(activeEmployees.get(0).getOrganization());
         batch.setPayrollMonth(request.getPayrollMonth());
@@ -78,27 +149,44 @@ public class PayrollServiceImpl implements PayrollService {
         for (Employee employee : activeEmployees) {
             SalaryStructure currentSalary = employee.getCurrentSalaryStructure();
             if (currentSalary == null) {
-                log.warn("Skipping employee {} (ID: {}) as they have no active salary structure.", employee.getUser().getFullName(), employee.getId());
+                log.warn("Skipping employee {} (ID: {}) as they have no active salary structure.",
+                        employee.getUser().getFullName(), employee.getId());
                 continue;
             }
+
+            // Check for override
+            SalaryOverrideDto override = overrideMap.get(employee.getId());
+
+            BigDecimal basicSalary = override != null ? override.getBasicSalary() : currentSalary.getBasicSalary();
+            BigDecimal hra = override != null ? override.getHra() : currentSalary.getHra();
+            BigDecimal da = override != null ? override.getDa() : currentSalary.getDa();
+            BigDecimal otherAllowances = override != null ? override.getOtherAllowances()
+                    : currentSalary.getOtherAllowances();
+            BigDecimal pfContribution = override != null ? override.getPfContribution()
+                    : currentSalary.getPfContribution();
+
+            BigDecimal totalEarnings = basicSalary.add(hra).add(da).add(otherAllowances);
+            BigDecimal netSalaryPaid = totalEarnings.subtract(pfContribution);
 
             PayrollPayment payment = PayrollPayment.builder()
                     .payrollBatch(batch)
                     .employee(employee)
-                    .netSalaryPaid(currentSalary.getTotalSalary())
-                    .basicSalary(currentSalary.getBasicSalary())
-                    .hra(currentSalary.getHra())
-                    .da(currentSalary.getDa())
-                    .pfContribution(currentSalary.getPfContribution())
-                    .otherAllowances(currentSalary.getOtherAllowances())
+                    .netSalaryPaid(netSalaryPaid)
+                    .basicSalary(basicSalary)
+                    .hra(hra)
+                    .da(da)
+                    .pfContribution(pfContribution)
+                    .otherAllowances(otherAllowances)
                     .status(PaymentStatus.PENDING)
+                    .salaryModified(override != null)
                     .build();
             payments.add(payment);
-            totalAmount = totalAmount.add(currentSalary.getTotalSalary());
+            totalAmount = totalAmount.add(netSalaryPaid);
         }
 
         if (payments.isEmpty()) {
-            throw new IllegalStateException("Payroll creation failed. No employees with active salary structures found.");
+            throw new IllegalStateException(
+                    "Payroll creation failed. No employees with active salary structures found.");
         }
 
         batch.setPayments(payments);
@@ -106,7 +194,8 @@ public class PayrollServiceImpl implements PayrollService {
         batch.setTotalEmployees(payments.size());
 
         PayrollBatch savedBatch = payrollBatchRepository.save(batch);
-        log.info("Created payroll batch {} for organization {} with total amount {}", savedBatch.getId(), organizationId, totalAmount);
+        log.info("Created payroll batch {} for organization {} with total amount {}", savedBatch.getId(),
+                organizationId, totalAmount);
         return PayrollMapper.toDto(savedBatch);
     }
 
@@ -134,8 +223,7 @@ public class PayrollServiceImpl implements PayrollService {
                 batch.getTotalAmount(),
                 "Salary payment for " + batch.getPayrollMonth() + "/" + batch.getPayrollYear(),
                 TransactionSourceType.PAYROLL_PAYMENT,
-                batch.getId()
-        );
+                batch.getId());
 
         batch.setApprovedByUser(currentUser);
         batch.setStatus(PayrollStatus.COMPLETED);
@@ -153,8 +241,8 @@ public class PayrollServiceImpl implements PayrollService {
                 "bank-admin@papms.com",
                 batch.getSubmittedByUser().getEmail(),
                 "Payroll Approved: #" + batch.getId(),
-                "Your payroll request for " + batch.getPayrollMonth() + "/" + batch.getPayrollYear() + " has been approved and processed."
-        );
+                "Your payroll request for " + batch.getPayrollMonth() + "/" + batch.getPayrollYear()
+                        + " has been approved and processed.");
 
         log.info("Payroll batch {} approved by bank admin {}", batch.getId(), currentUser.getUsername());
 
@@ -187,8 +275,8 @@ public class PayrollServiceImpl implements PayrollService {
                 "bank-admin@papms.com",
                 batch.getSubmittedByUser().getEmail(),
                 "Payroll Rejected: #" + batch.getId(),
-                "Your payroll request for " + batch.getPayrollMonth() + "/" + batch.getPayrollYear() + " has been rejected. Reason: " + reason
-        );
+                "Your payroll request for " + batch.getPayrollMonth() + "/" + batch.getPayrollYear()
+                        + " has been rejected. Reason: " + reason);
 
         log.info("Payroll batch {} rejected by bank admin {}. Reason: {}", batchId, currentUser.getUsername(), reason);
         return PayrollMapper.toDto(savedBatch);
@@ -228,7 +316,8 @@ public class PayrollServiceImpl implements PayrollService {
 
     // --- FIX: Updated validation logic ---
     private void validateOrgAccess(User user, Integer organizationId) {
-        // BANK_ADMIN can access any organization's payrolls, so we skip the check for them.
+        // BANK_ADMIN can access any organization's payrolls, so we skip the check for
+        // them.
         if (user.getRole() == Role.BANK_ADMIN) {
             return;
         }
@@ -260,6 +349,7 @@ public class PayrollServiceImpl implements PayrollService {
 
         return PayrollMapper.toDto(payment);
     }
+
     @Override
     @Transactional(readOnly = true)
     public Page<MyPayslipHistoryDto> getMyPayslipHistory(Pageable pageable) {
@@ -273,8 +363,7 @@ public class PayrollServiceImpl implements PayrollService {
                 pageable.getPageNumber(),
                 pageable.getPageSize(),
                 pageable.getSortOr(Sort.by("payrollBatch.payrollYear").descending()
-                        .and(Sort.by("payrollBatch.payrollMonth").descending()))
-        );
+                        .and(Sort.by("payrollBatch.payrollMonth").descending())));
         // Call the new paginated repository method
         Page<PayrollPayment> paymentPage = payrollPaymentRepository
                 .findByEmployeeIdWithPagination(currentEmployee.getId(), sortedPageable);
@@ -298,8 +387,6 @@ public class PayrollServiceImpl implements PayrollService {
         return results.stream().collect(
                 Collectors.toMap(
                         result -> (Integer) result.get("organizationId"),
-                        result -> (Long) result.get("pendingCount")
-                )
-        );
+                        result -> (Long) result.get("pendingCount")));
     }
 }

@@ -53,13 +53,14 @@ public class PayslipPdfService {
 
         try {
             // Use helper for header with logo
-            LocalDate payrollDate = LocalDate.of(payment.getPayrollBatch().getPayrollYear(), payment.getPayrollBatch().getPayrollMonth(), 1);
-            String monthYear = String.format(Locale.US, "%tB %d", payrollDate, payment.getPayrollBatch().getPayrollYear());
+            LocalDate payrollDate = LocalDate.of(payment.getPayrollBatch().getPayrollYear(),
+                    payment.getPayrollBatch().getPayrollMonth(), 1);
+            String monthYear = String.format(Locale.US, "%tB %d", payrollDate,
+                    payment.getPayrollBatch().getPayrollYear());
             PdfStylingHelper.addLogoAndTitle(document, payment.getPayrollBatch().getOrganization(), "PAYSLIP");
             document.add(new Paragraph("For the month of " + monthYear)
                     .setTextAlignment(TextAlignment.CENTER).setFontSize(12).setItalic());
             document.add(new Paragraph("\n"));
-
 
             // Use styled cells for employee details
             addEmployeeDetails(document, payment);
@@ -75,11 +76,12 @@ public class PayslipPdfService {
     }
 
     private void addEmployeeDetails(Document document, PayrollPayment payment) {
-        Table table = new Table(UnitValue.createPercentArray(new float[]{1, 2, 1, 2})).useAllAvailableWidth();
+        Table table = new Table(UnitValue.createPercentArray(new float[] { 1, 2, 1, 2 })).useAllAvailableWidth();
         table.setBorder(new SolidBorder(PdfStylingHelper.BORDER_COLOR, 1));
 
         table.addCell(PdfStylingHelper.createLabelCell("Employee Name"));
-        table.addCell(PdfStylingHelper.createValueCell(payment.getEmployee().getUser().getFullName(), TextAlignment.LEFT));
+        table.addCell(
+                PdfStylingHelper.createValueCell(payment.getEmployee().getUser().getFullName(), TextAlignment.LEFT));
         table.addCell(PdfStylingHelper.createLabelCell("Employee Code"));
         table.addCell(PdfStylingHelper.createValueCell(payment.getEmployee().getEmployeeCode(), TextAlignment.LEFT));
 
@@ -89,23 +91,31 @@ public class PayslipPdfService {
         table.addCell(PdfStylingHelper.createValueCell(payment.getEmployee().getDepartment(), TextAlignment.LEFT));
 
         table.addCell(PdfStylingHelper.createLabelCell("Date of Joining"));
-        table.addCell(PdfStylingHelper.createValueCell(payment.getEmployee().getDateOfJoining().format(DateTimeFormatter.ISO_LOCAL_DATE), TextAlignment.LEFT));
+        table.addCell(PdfStylingHelper.createValueCell(
+                payment.getEmployee().getDateOfJoining().format(DateTimeFormatter.ISO_LOCAL_DATE), TextAlignment.LEFT));
+
+        // Handle null processedAt for PENDING payslips - use createdAt as fallback
+        String paymentDate = payment.getProcessedAt() != null
+                ? payment.getProcessedAt().format(DateTimeFormatter.ISO_LOCAL_DATE)
+                : (payment.getCreatedAt() != null ? payment.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE)
+                        : "Pending");
         table.addCell(PdfStylingHelper.createLabelCell("Payment Date"));
-        table.addCell(PdfStylingHelper.createValueCell(payment.getProcessedAt().format(DateTimeFormatter.ISO_LOCAL_DATE), TextAlignment.LEFT));
+        table.addCell(PdfStylingHelper.createValueCell(paymentDate, TextAlignment.LEFT));
 
         document.add(table);
         document.add(new Paragraph("\n"));
     }
 
     private void addSalaryDetails(Document document, PayrollPayment payment) {
-        Table table = new Table(UnitValue.createPercentArray(new float[]{3, 1, 3, 1})).useAllAvailableWidth();
+        Table table = new Table(UnitValue.createPercentArray(new float[] { 3, 1, 3, 1 })).useAllAvailableWidth();
 
         table.addHeaderCell(PdfStylingHelper.createHeaderCell("Earnings"));
         table.addHeaderCell(PdfStylingHelper.createHeaderCell("Amount (INR)"));
         table.addHeaderCell(PdfStylingHelper.createHeaderCell("Deductions"));
         table.addHeaderCell(PdfStylingHelper.createHeaderCell("Amount (INR)"));
 
-        BigDecimal totalEarnings = payment.getBasicSalary().add(payment.getHra()).add(payment.getDa()).add(payment.getOtherAllowances());
+        BigDecimal totalEarnings = payment.getBasicSalary().add(payment.getHra()).add(payment.getDa())
+                .add(payment.getOtherAllowances());
         BigDecimal totalDeductions = payment.getPfContribution();
 
         // Data rows
@@ -148,18 +158,22 @@ public class PayslipPdfService {
     // Helper methods for salary table cells
     private Cell createDataCell(String text, boolean isBold) {
         Cell cell = new Cell().add(new Paragraph(text)).setPadding(5).setBorder(Border.NO_BORDER);
-        if (isBold) cell.setBold();
+        if (isBold)
+            cell.setBold();
         return cell;
     }
+
     private Cell createAmountCell(BigDecimal amount) {
         String text = (amount == null) ? "" : amount.toPlainString();
         return createDataCell(text, false).setTextAlignment(TextAlignment.RIGHT);
     }
+
     private Cell createTotalCell(String text) {
         Cell cell = createDataCell(text, true);
         cell.setBorderTop(new SolidBorder(PdfStylingHelper.BORDER_COLOR, 1));
         return cell;
     }
+
     private Cell createTotalAmountCell(BigDecimal amount) {
         Cell cell = createAmountCell(amount).setBold();
         cell.setBorderTop(new SolidBorder(PdfStylingHelper.BORDER_COLOR, 1));

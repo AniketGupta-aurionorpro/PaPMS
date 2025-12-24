@@ -5,6 +5,8 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class CreatePayrollRequest {
 
@@ -16,4 +18,10 @@ public class CreatePayrollRequest {
     @NotNull
     @Min(value = 2020, message = "Year must be 2020 or later")
     private Integer payrollYear;
+
+    /**
+     * Optional list of salary overrides for specific employees.
+     * Only modified employees need to be included.
+     */
+    private List<SalaryOverrideDto> salaryOverrides;
 }

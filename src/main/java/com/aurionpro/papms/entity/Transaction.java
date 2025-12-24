@@ -10,7 +10,11 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "transactions")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Transaction {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -31,7 +35,7 @@ public class Transaction {
     private String description;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "source_type", nullable = false)
+    @Column(name = "source_type", nullable = false, length = 50)
     private TransactionSourceType sourceType;
 
     @Column(name = "source_id", nullable = false)

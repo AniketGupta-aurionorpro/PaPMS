@@ -2,6 +2,7 @@ package com.aurionpro.papms.controller;
 
 import com.aurionpro.papms.dto.payroll.CreatePayrollRequest;
 import com.aurionpro.papms.dto.payroll.PayrollBatchResponse;
+import com.aurionpro.papms.dto.payroll.PayrollPreviewDto;
 import com.aurionpro.papms.service.PayrollService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -16,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -33,9 +35,11 @@ public class PayrollController {
     public ResponseEntity<PayrollBatchResponse> createPayroll(
             @PathVariable Integer organizationId,
             @Valid @RequestBody CreatePayrollRequest request) {
-        log.info("Request to create new payroll for org ID {} for month/year: {}/{}", organizationId, request.getPayrollMonth(), request.getPayrollYear());
+        log.info("Request to create new payroll for org ID {} for month/year: {}/{}", organizationId,
+                request.getPayrollMonth(), request.getPayrollYear());
         PayrollBatchResponse response = payrollService.createPayroll(organizationId, request);
-        log.info("Successfully created payroll batch ID {} for org ID {}. Status: PENDING_APPROVAL", response.getId(), organizationId);
+        log.info("Successfully created payroll batch ID {} for org ID {}. Status: PENDING_APPROVAL", response.getId(),
+                organizationId);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
@@ -71,7 +75,8 @@ public class PayrollController {
     public ResponseEntity<PayrollBatchResponse> approvePayroll(@PathVariable Long batchId) {
         log.info("Bank Admin request to APPROVE payroll batch ID: {}", batchId);
         PayrollBatchResponse response = payrollService.approvePayroll(batchId);
-        log.info("Successfully approved and processed payroll batch ID {}. New status: {}", batchId, response.getStatus());
+        log.info("Successfully approved and processed payroll batch ID {}. New status: {}", batchId,
+                response.getStatus());
         return ResponseEntity.ok(response);
     }
 
@@ -94,4 +99,26 @@ public class PayrollController {
         log.info("Bank Admin request to get pending payroll counts by organization.");
         return ResponseEntity.ok(payrollService.getPendingPayrollCountsByOrganization());
     }
+
+    @GetMapping("/organizations/{organizationId}/payrolls/by-year/{year}")
+    @PreAuthorize("hasRole('ORG_ADMIN')")
+    @Operation(summary = "Get all payrolls for a specific year (not paginated)")
+    public ResponseEntity<List<PayrollBatchResponse>> getPayrollsByYear(
+            @PathVariable Integer organizationId,
+            @PathVariable int year) {
+        log.info("Request to get all payrolls for organization {} and year {}", organizationId, year);
+        return ResponseEntity.ok(payrollService.getPayrollsByYear(organizationId, year));
+    }
+
+    @GetMapping("/organizations/{organizationId}/payrolls/preview")
+    @PreAuthorize("hasRole('ORG_ADMIN')")
+    @Operation(summary = "Get payroll preview with all employee salaries for a given month/year")
+    public ResponseEntity<List<PayrollPreviewDto>> getPayrollPreview(
+            @PathVariable Integer organizationId,
+            @RequestParam Integer month,
+            @RequestParam Integer year) {
+        log.info("Request to get payroll preview for org {} month {} year {}", organizationId, month, year);
+        return ResponseEntity.ok(payrollService.getPayrollPreview(organizationId, month, year));
+    }
+
 }

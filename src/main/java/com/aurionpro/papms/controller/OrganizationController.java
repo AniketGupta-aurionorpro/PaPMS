@@ -36,24 +36,19 @@ public class OrganizationController {
 
     private final OrganizationService organizationService;
 
-    @Operation(
-            summary = "Register a new organization with verification documents and an optional logo", // MODIFIED
+    @Operation(summary = "Register a new organization with verification documents and an optional logo", // MODIFIED
             description = "This endpoint registers a new organization. Provide organization data as a JSON string, two PDF documents, and an optional logo image.", // MODIFIED
-            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    content = @Content(
-                            mediaType = "multipart/form-data",
-                            schema = @Schema(type = "object", implementation = OrganizationRegistrationMultipart.class)
-                    )
-            )
-    )
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(mediaType = "multipart/form-data", schema = @Schema(type = "object", implementation = OrganizationRegistrationMultipart.class))))
     @PostMapping(value = "/register", consumes = "multipart/form-data")
     public ResponseEntity<OrganizationResponseDto> registerOrganizationWithDocuments(
             @RequestPart("organizationData") String organizationDataJson,
             @RequestPart("document1") MultipartFile document1,
             @RequestPart("document2") MultipartFile document2,
             @RequestPart(value = "logo", required = false) MultipartFile logo) { // MODIFIED: Added optional logo part
-        log.info("Received request to register organization with documents. Logo present: {}", (logo != null && !logo.isEmpty()));
-        Organization newOrg = organizationService.registerOrganizationWithDocuments(organizationDataJson, document1, document2, logo); // MODIFIED
+        log.info("Received request to register organization with documents. Logo present: {}",
+                (logo != null && !logo.isEmpty()));
+        Organization newOrg = organizationService.registerOrganizationWithDocuments(organizationDataJson, document1,
+                document2, logo); // MODIFIED
         log.info("Organization registered successfully with ID: {}. Status: PENDING_APPROVAL", newOrg.getId());
         return new ResponseEntity<>(OrganizationMapper.toDto(newOrg), HttpStatus.CREATED);
     }
@@ -72,29 +67,33 @@ public class OrganizationController {
         public MultipartFile logo; // ADD THIS
     }
 
-//    @GetMapping
-//    @PreAuthorize("hasRole('BANK_ADMIN')")
-//    @Transactional(readOnly = true)
-//    public ResponseEntity<Page<OrganizationResponseDto>> getAllOrganizations(@ParameterObject Pageable pageable) {
-//        log.info("Request to get all organizations with pagination: {}", pageable);
-//        Page<OrganizationResponseDto> organizationsPage = organizationService.getAllOrganizations(pageable);
-//        log.info("Returning {} organizations on page {}", organizationsPage.getNumberOfElements(), pageable.getPageNumber());
-//        return ResponseEntity.ok(organizationsPage);
-//    }
-@GetMapping
-@PreAuthorize("hasRole('BANK_ADMIN')")
-@Transactional(readOnly = true)
-public ResponseEntity<Page<OrganizationResponseDto>> getAllOrganizations(
-        @ParameterObject Pageable pageable,
-        @RequestParam(required = false) OrganizationStatus status) { // Add this parameter
-    log.info("Request to get organizations with pagination: {} and status filter: {}", pageable, status);
+    // @GetMapping
+    // @PreAuthorize("hasRole('BANK_ADMIN')")
+    // @Transactional(readOnly = true)
+    // public ResponseEntity<Page<OrganizationResponseDto>>
+    // getAllOrganizations(@ParameterObject Pageable pageable) {
+    // log.info("Request to get all organizations with pagination: {}", pageable);
+    // Page<OrganizationResponseDto> organizationsPage =
+    // organizationService.getAllOrganizations(pageable);
+    // log.info("Returning {} organizations on page {}",
+    // organizationsPage.getNumberOfElements(), pageable.getPageNumber());
+    // return ResponseEntity.ok(organizationsPage);
+    // }
+    @GetMapping
+    @PreAuthorize("hasRole('BANK_ADMIN')")
+    @Transactional(readOnly = true)
+    public ResponseEntity<Page<OrganizationResponseDto>> getAllOrganizations(
+            @ParameterObject Pageable pageable,
+            @RequestParam(required = false) OrganizationStatus status) { // Add this parameter
+        log.info("Request to get organizations with pagination: {} and status filter: {}", pageable, status);
 
-    // Pass the status to the service method
-    Page<OrganizationResponseDto> organizationsPage = organizationService.getAllOrganizations(pageable, status);
+        // Pass the status to the service method
+        Page<OrganizationResponseDto> organizationsPage = organizationService.getAllOrganizations(pageable, status);
 
-    log.info("Returning {} organizations on page {}", organizationsPage.getNumberOfElements(), pageable.getPageNumber());
-    return ResponseEntity.ok(organizationsPage);
-}
+        log.info("Returning {} organizations on page {}", organizationsPage.getNumberOfElements(),
+                pageable.getPageNumber());
+        return ResponseEntity.ok(organizationsPage);
+    }
 
     @GetMapping("/pending")
     @PreAuthorize("hasRole('BANK_ADMIN')")
@@ -133,7 +132,8 @@ public ResponseEntity<Page<OrganizationResponseDto>> getAllOrganizations(
 
     @PutMapping("/{id}/reject")
     @PreAuthorize("hasRole('BANK_ADMIN')")
-    public ResponseEntity<Organization> rejectOrganization(@PathVariable Integer id, @RequestBody String rejectionReason) {
+    public ResponseEntity<Organization> rejectOrganization(@PathVariable Integer id,
+            @RequestBody String rejectionReason) {
         log.info("Bank Admin request to REJECT organization ID: {} with reason.", id);
         Organization rejectedOrg = organizationService.rejectOrganization(id, rejectionReason);
         log.info("Successfully rejected organization ID {}. New status: REJECTED", id);
@@ -148,6 +148,7 @@ public ResponseEntity<Page<OrganizationResponseDto>> getAllOrganizations(
         log.info("Successfully suspended organization ID {}. New status: SUSPENDED", id);
         return ResponseEntity.ok(suspendedOrg);
     }
+
     @PutMapping("/{id}/reactivate")
     @PreAuthorize("hasRole('BANK_ADMIN')")
     public ResponseEntity<OrganizationResponseDto> reactivateOrganization(@PathVariable Integer id) {
@@ -156,6 +157,7 @@ public ResponseEntity<Page<OrganizationResponseDto>> getAllOrganizations(
         log.info("Successfully reactivated organization ID {}. New status: ACTIVE", id);
         return ResponseEntity.ok(OrganizationMapper.toDto(reactivatedOrg));
     }
+
     @GetMapping("/{id}/with-employees")
     @PreAuthorize("hasRole('BANK_ADMIN')")
     @Transactional(readOnly = true)
@@ -163,14 +165,36 @@ public ResponseEntity<Page<OrganizationResponseDto>> getAllOrganizations(
         log.info("Request to get organization with employees for ID: {}", id);
         Organization organization = organizationService.getOrganizationWithEmployees(id);
         OrganizationResponseDtowithEmployee dto = OrganizationMapper.toDtoWithEmployees(organization);
-        log.info("Successfully fetched organization '{}' with {} employees.", dto.getCompanyName(), dto.getEmployees() != null ? dto.getEmployees().size() : 0);
+        log.info("Successfully fetched organization '{}' with {} employees.", dto.getCompanyName(),
+                dto.getEmployees() != null ? dto.getEmployees().size() : 0);
         return ResponseEntity.ok(dto);
     }
+
     @GetMapping("/{id}/profile")
     @PreAuthorize("hasAnyRole('BANK_ADMIN', 'ORG_ADMIN')")
     public ResponseEntity<OrganizationProfileResponse> getProfile(@PathVariable Integer id) {
         log.info("Request to get profile for organization ID: {}", id);
         OrganizationProfileResponse profile = organizationService.getProfile(id);
         return ResponseEntity.ok(profile);
+    }
+
+    @GetMapping("/{id}/financial-summary")
+    @PreAuthorize("hasAnyRole('BANK_ADMIN', 'ORG_ADMIN')")
+    @Operation(summary = "Get financial summary for an organization", description = "Returns balance, total credits/debits, and transaction counts. ORG_ADMIN can only access their own organization.")
+    public ResponseEntity<FinancialSummaryDto> getFinancialSummary(@PathVariable Integer id) {
+        log.info("Request to get financial summary for organization ID: {}", id);
+        FinancialSummaryDto summary = organizationService.getFinancialSummary(id);
+        return ResponseEntity.ok(summary);
+    }
+
+    @PostMapping(path = "/upload-logo", consumes = "multipart/form-data")
+    @PreAuthorize("hasRole('ORG_ADMIN')")
+    @Operation(summary = "Upload or replace the organization's logo", description = "Allows ORG_ADMIN to upload a new logo for their organization. Only JPG and PNG files are allowed.")
+    public ResponseEntity<OrganizationProfileResponse> uploadLogo(@RequestParam("logo") MultipartFile logoFile) {
+        log.info("Request to upload organization logo. File: {}", logoFile.getOriginalFilename());
+        OrganizationProfileResponse response = organizationService.uploadLogo(logoFile);
+        log.info("Successfully uploaded logo for organization ID {}. New URL: {}", response.getId(),
+                response.getLogoUrl());
+        return ResponseEntity.ok(response);
     }
 }

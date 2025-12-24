@@ -1,6 +1,5 @@
 package com.aurionpro.papms.service;
 
-
 import com.aurionpro.papms.Enum.OwnerType;
 import com.aurionpro.papms.Enum.Role;
 import com.aurionpro.papms.dto.*;
@@ -68,6 +67,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final CsvEmployeeParser csvEmployeeParser;
     private final NotificationService notificationService;
     private static final Logger log = LoggerFactory.getLogger(EmployeeServiceImpl.class);
+    @org.springframework.beans.factory.annotation.Qualifier("asyncJobLauncher")
     private final JobLauncher jobLauncher;
     private final Job employeeCsvImportJob;
     private final CloudinaryService cloudinaryService; // ADDED
@@ -81,7 +81,8 @@ public class EmployeeServiceImpl implements EmployeeService {
 
     // ADDED HELPER METHOD
     private String sanitizeForFolderName(String name) {
-        if (name == null) return "unknown";
+        if (name == null)
+            return "unknown";
         return name.toLowerCase().replaceAll("\\s+", "_").replaceAll("[^a-z0-9_.-]", "");
     }
 
@@ -94,7 +95,8 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         // Authorization Check
         boolean isSelf = currentUser.getId().equals(employee.getUser().getId());
-        boolean isAdmin = currentUser.getRole() == Role.ORG_ADMIN && currentUser.getOrganizationId().equals(organizationId);
+        boolean isAdmin = currentUser.getRole() == Role.ORG_ADMIN
+                && currentUser.getOrganizationId().equals(organizationId);
 
         if (!isSelf && !isAdmin) {
             throw new SecurityException("You are not authorized to upload a profile picture for this employee.");
@@ -130,11 +132,13 @@ public class EmployeeServiceImpl implements EmployeeService {
         }
         String contentType = file.getContentType();
         if (contentType == null || !ALLOWED_IMAGE_TYPES.contains(contentType)) {
-            throw new IllegalArgumentException("Invalid file type for profile picture. Only JPG, PNG, and GIF are allowed.");
+            throw new IllegalArgumentException(
+                    "Invalid file type for profile picture. Only JPG, PNG, and GIF are allowed.");
         }
     }
 
-    // ... (rest of the existing methods in EmployeeServiceImpl remain unchanged) ...
+    // ... (rest of the existing methods in EmployeeServiceImpl remain unchanged)
+    // ...
     @Override
     public void addEmployee(Integer organizationId, AddEmployeeRequest request) {
         User currentUser = getLoggedInUser();
@@ -159,6 +163,7 @@ public class EmployeeServiceImpl implements EmployeeService {
         Employee newEmployee = EmployeeMapper.toEmployeeEntity(request, savedUser, organization);
         employeeRepository.save(newEmployee);
     }
+
     @Override
     @Transactional(readOnly = true)
     public CompleteEmployeeResponse getCompleteEmployeeProfileByUsername(String username) {
@@ -168,6 +173,7 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .orElseThrow(() -> new NotFoundException("Employee details not found for user: " + username));
         return EmployeeMapper.toCompleteDto(employee);
     }
+
     @Override
     @Transactional(readOnly = true)
     public Page<EmployeeResponseDto> getEmployeesByOrganization(Integer organizationId, Pageable pageable) {
@@ -183,10 +189,10 @@ public class EmployeeServiceImpl implements EmployeeService {
         // 1. Call the new paginated repository method
         Page<Employee> employeePage = employeeRepository.findByOrganizationId(organizationId, pageable);
 
-        // 2. Use the .map() function to convert the Page<Employee> to Page<EmployeeResponseDto>
+        // 2. Use the .map() function to convert the Page<Employee> to
+        // Page<EmployeeResponseDto>
         return employeePage.map(EmployeeMapper::toDto);
     }
-
 
     @Override
     @Transactional(readOnly = true)
@@ -228,77 +234,81 @@ public class EmployeeServiceImpl implements EmployeeService {
         appUserRepository.save(employee.getUser());
     }
 
+    // @Override
+    // public String launchCsvImportJob(Integer organizationId, MultipartFile file)
+    // {
+    // try {
+    // // Validate organization exists
+    // Organization organization = organizationRepository.findById(organizationId)
+    // .orElseThrow(() -> new NotFoundException("Organization not found with ID: " +
+    // organizationId));
+    //
+    // // Save the file to a temporary location
+    // Path tempDir = Files.createTempDirectory("csv-import-");
+    // String timestamp = String.valueOf(System.currentTimeMillis());
+    // String fileName = "employees_" + timestamp + ".csv";
+    // File tempFile = tempDir.resolve(fileName).toFile();
+    //
+    // Files.copy(file.getInputStream(), tempFile.toPath(),
+    // StandardCopyOption.REPLACE_EXISTING);
+    // log.info("CSV file saved temporarily to: {}", tempFile.getAbsolutePath());
+    //
+    // // Create JobParameters
+    // JobParameters jobParameters = new JobParametersBuilder()
+    // .addString("filePath", tempFile.getAbsolutePath())
+    // .addLong("timestamp", System.currentTimeMillis())
+    // .addLong("organizationId", organizationId.longValue())
+    // .toJobParameters();
+    //
+    // // Launch the job asynchronously
+    // jobLauncher.run(employeeCsvImportJob, jobParameters);
+    //
+    // return "CSV import job started successfully. Processing " +
+    // organization.getCompanyName() + "'s employee data.";
+    //
+    // } catch (Exception e) {
+    // log.error("Failed to start CSV import job for organization {}",
+    // organizationId, e);
+    // throw new RuntimeException("Failed to start CSV import job: " +
+    // e.getMessage(), e);
+    // }
+    // }
+    @Override
+    public String launchCsvImportJob(Integer organizationId, MultipartFile file) throws Exception {
+        // 1. Basic validation
+        organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new NotFoundException("Organization not found with ID: " + organizationId));
 
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("Cannot process an empty file.");
+        }
 
-//    @Override
-//    public String launchCsvImportJob(Integer organizationId, MultipartFile file) {
-//        try {
-//            // Validate organization exists
-//            Organization organization = organizationRepository.findById(organizationId)
-//                    .orElseThrow(() -> new NotFoundException("Organization not found with ID: " + organizationId));
-//
-//            // Save the file to a temporary location
-//            Path tempDir = Files.createTempDirectory("csv-import-");
-//            String timestamp = String.valueOf(System.currentTimeMillis());
-//            String fileName = "employees_" + timestamp + ".csv";
-//            File tempFile = tempDir.resolve(fileName).toFile();
-//
-//            Files.copy(file.getInputStream(), tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-//            log.info("CSV file saved temporarily to: {}", tempFile.getAbsolutePath());
-//
-//            // Create JobParameters
-//            JobParameters jobParameters = new JobParametersBuilder()
-//                    .addString("filePath", tempFile.getAbsolutePath())
-//                    .addLong("timestamp", System.currentTimeMillis())
-//                    .addLong("organizationId", organizationId.longValue())
-//                    .toJobParameters();
-//
-//            // Launch the job asynchronously
-//            jobLauncher.run(employeeCsvImportJob, jobParameters);
-//
-//            return "CSV import job started successfully. Processing " + organization.getCompanyName() + "'s employee data.";
-//
-//        } catch (Exception e) {
-//            log.error("Failed to start CSV import job for organization {}", organizationId, e);
-//            throw new RuntimeException("Failed to start CSV import job: " + e.getMessage(), e);
-//        }
-//    }
-@Override
-public String launchCsvImportJob(Integer organizationId, MultipartFile file) throws Exception {
-    // 1. Basic validation
-    organizationRepository.findById(organizationId)
-            .orElseThrow(() -> new NotFoundException("Organization not found with ID: " + organizationId));
+        // 2. Save the file to a temporary, unique location to avoid conflicts
+        Path tempDir = Files.createTempDirectory("papms-csv-import-");
+        File tempFile = tempDir.resolve(
+                System.currentTimeMillis() + "_" + file.getOriginalFilename()).toFile();
 
-    if (file.isEmpty()) {
-        throw new IllegalArgumentException("Cannot process an empty file.");
+        try {
+            file.transferTo(tempFile);
+            log.info("CSV file for organization {} saved temporarily to: {}", organizationId,
+                    tempFile.getAbsolutePath());
+        } catch (IOException e) {
+            log.error("Failed to save temporary file for batch processing", e);
+            throw new RuntimeException("Could not save uploaded file for processing.", e);
+        }
+
+        // 3. Create JobParameters to pass file path and organizationId to the job
+        JobParameters jobParameters = new JobParametersBuilder()
+                .addString("filePath", tempFile.getAbsolutePath())
+                .addLong("timestamp", System.currentTimeMillis()) // Ensures a new job instance is created every time
+                .addLong("organizationId", organizationId.longValue())
+                .toJobParameters();
+
+        // 4. Launch the job asynchronously
+        jobLauncher.run(employeeCsvImportJob, jobParameters);
+
+        return "CSV import job started successfully. You will be notified upon completion.";
     }
-
-    // 2. Save the file to a temporary, unique location to avoid conflicts
-    Path tempDir = Files.createTempDirectory("papms-csv-import-");
-    File tempFile = tempDir.resolve(
-            System.currentTimeMillis() + "_" + file.getOriginalFilename()
-    ).toFile();
-
-    try {
-        file.transferTo(tempFile);
-        log.info("CSV file for organization {} saved temporarily to: {}", organizationId, tempFile.getAbsolutePath());
-    } catch (IOException e) {
-        log.error("Failed to save temporary file for batch processing", e);
-        throw new RuntimeException("Could not save uploaded file for processing.", e);
-    }
-
-    // 3. Create JobParameters to pass file path and organizationId to the job
-    JobParameters jobParameters = new JobParametersBuilder()
-            .addString("filePath", tempFile.getAbsolutePath())
-            .addLong("timestamp", System.currentTimeMillis()) // Ensures a new job instance is created every time
-            .addLong("organizationId", organizationId.longValue())
-            .toJobParameters();
-
-    // 4. Launch the job asynchronously
-    jobLauncher.run(employeeCsvImportJob, jobParameters);
-
-    return "CSV import job started successfully. You will be notified upon completion.";
-}
 
     @Override
     public EmployeeResponseDto getEmployeeById(Long id) {
@@ -318,7 +328,8 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
 
     private boolean isCsvFile(MultipartFile file) {
         String contentType = file.getContentType();
-        return contentType != null && (contentType.equals("text/csv") || contentType.equals("application/vnd.ms-excel"));
+        return contentType != null
+                && (contentType.equals("text/csv") || contentType.equals("application/vnd.ms-excel"));
     }
 
     private String generateTemporaryPassword() {
@@ -343,7 +354,8 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
             throw new DuplicateUserException("Username already exists: " + request.getUsername());
         }
         if (employeeRepository.existsByOrganizationIdAndEmployeeCode(organizationId, request.getEmployeeCode())) {
-            throw new DuplicateUserException("Employee code already exists in this organization: " + request.getEmployeeCode());
+            throw new DuplicateUserException(
+                    "Employee code already exists in this organization: " + request.getEmployeeCode());
         }
 
         Organization organization = organizationRepository.findById(organizationId)
@@ -460,7 +472,8 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
     @Transactional
     public BulkEmployeeUploadResponse bulkAddCompleteEmployees(Integer organizationId, MultipartFile file) {
         // Similar to bulkAddEmployees but with complete employee data
-        // You'll need to create a CSV format that includes bank account and salary details
+        // You'll need to create a CSV format that includes bank account and salary
+        // details
         // Implementation would follow similar pattern as bulkAddEmployees
         throw new UnsupportedOperationException("Bulk complete employee upload not yet implemented");
     }
@@ -495,8 +508,7 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
         for (CsvEmployeeRecord csvRecord : parseResult.getValidRecords()) {
             try {
                 CompleteEmployeeResponse createdEmployee = processSingleEmployeeRecord(
-                        organization, csvRecord, parseResult.getValidRecords().indexOf(csvRecord) + 1
-                );
+                        organization, csvRecord, parseResult.getValidRecords().indexOf(csvRecord) + 1);
 
                 successfulImports.add(csvRecord.getFullName() + " (" + csvRecord.getEmail() + ")");
                 importedEmployees.add(createdEmployee);
@@ -514,8 +526,7 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
                 failedRecords.add(new FailedEmployeeRecord(
                         (long) (parseResult.getValidRecords().indexOf(csvRecord) + 1),
                         convertCsvRecordToMap(csvRecord),
-                        "Failed to create employee: " + e.getMessage()
-                ));
+                        "Failed to create employee: " + e.getMessage()));
                 log.error("Failed to create employee from CSV record", e);
             }
         }
@@ -540,13 +551,14 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
 
     @Transactional
     protected CompleteEmployeeResponse processSingleEmployeeRecord(Organization organization,
-                                                                   CsvEmployeeRecord csvRecord,
-                                                                   long recordNumber) {
+            CsvEmployeeRecord csvRecord,
+            long recordNumber) {
         // Validate unique constraints
         if (appUserRepository.existsByUsername(csvRecord.getUsername())) {
             throw new DuplicateUserException("Username already exists: " + csvRecord.getUsername());
         }
-        if (employeeRepository.existsByOrganizationIdAndEmployeeCode(organization.getId(), csvRecord.getEmployeeCode())) {
+        if (employeeRepository.existsByOrganizationIdAndEmployeeCode(organization.getId(),
+                csvRecord.getEmployeeCode())) {
             throw new DuplicateUserException("Employee code already exists: " + csvRecord.getEmployeeCode());
         }
         if (bankAccountRepository.existsByAccountNumber(csvRecord.getAccountNumber())) {
@@ -630,15 +642,15 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
         try {
             String subject = "Welcome to " + organization.getCompanyName();
             String body = String.format("""
-                <h3>Hello %s,</h3>
-                <p>Your employee account has been created successfully.</p>
-                <p><b>Username:</b> %s</p>
-                <p><b>Employee Code:</b> %s</p>
-                <p><b>Department:</b> %s</p>
-                <p><b>Job Title:</b> %s</p>
-                <p>Please use the temporary password provided to you to log in for the first time.</p>
-                <p>We recommend changing your password after first login.</p>
-                """,
+                    <h3>Hello %s,</h3>
+                    <p>Your employee account has been created successfully.</p>
+                    <p><b>Username:</b> %s</p>
+                    <p><b>Employee Code:</b> %s</p>
+                    <p><b>Department:</b> %s</p>
+                    <p><b>Job Title:</b> %s</p>
+                    <p>Please use the temporary password provided to you to log in for the first time.</p>
+                    <p>We recommend changing your password after first login.</p>
+                    """,
                     csvRecord.getFullName(), csvRecord.getUsername(), csvRecord.getEmployeeCode(),
                     csvRecord.getDepartment(), csvRecord.getJobTitle());
 
@@ -666,12 +678,10 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
     }
 
     private boolean isValidCsvContentType(String contentType) {
-        return contentType != null && (
-                contentType.equals("text/csv") ||
-                        contentType.equals("application/vnd.ms-excel") ||
-                        contentType.equals("application/csv") ||
-                        contentType.equals("text/plain")
-        );
+        return contentType != null && (contentType.equals("text/csv") ||
+                contentType.equals("application/vnd.ms-excel") ||
+                contentType.equals("application/csv") ||
+                contentType.equals("text/plain"));
     }
 
     private Map<String, String> convertCsvRecordToMap(CsvEmployeeRecord record) {
@@ -686,6 +696,7 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
         map.put("bankName", record.getBankName());
         return map;
     }
+
     @Override
     @Transactional
     public CompleteEmployeeResponse updateEmployeeProfile(Long employeeId, UpdateEmployeeRequest request) {
@@ -702,7 +713,8 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
 
     @Override
     @Transactional
-    public CompleteEmployeeResponse updateEmployeeDetails(Integer organizationId, Long employeeId, UpdateEmployeeRequest request) {
+    public CompleteEmployeeResponse updateEmployeeDetails(Integer organizationId, Long employeeId,
+            UpdateEmployeeRequest request) {
         User currentUser = getLoggedInUser();
         Employee employee = getEmployeeWithAuthorization(employeeId, currentUser, false);
 
@@ -714,7 +726,8 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
         return updateEmployeeCommon(employee, request, true);
     }
 
-    private CompleteEmployeeResponse updateEmployeeCommon(Employee employee, UpdateEmployeeRequest request, boolean isAdminUpdate) {
+    private CompleteEmployeeResponse updateEmployeeCommon(Employee employee, UpdateEmployeeRequest request,
+            boolean isAdminUpdate) {
         User user = employee.getUser();
 
         // Update user fields (always allowed)
@@ -738,7 +751,8 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
 
     @Override
     @Transactional
-    public CompleteEmployeeResponse updateEmployeeSalary(Integer organizationId, Long employeeId, UpdateSalaryRequest request) {
+    public CompleteEmployeeResponse updateEmployeeSalary(Integer organizationId, Long employeeId,
+            UpdateSalaryRequest request) {
         User currentUser = getLoggedInUser();
         Employee employee = getEmployeeWithAuthorization(employeeId, currentUser, false);
 
@@ -774,7 +788,8 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
         log.info("Salary updated for employee {} by admin {}. Reason: {}",
                 employeeId, currentUser.getUsername(), request.getChangeReason());
 
-        String message = String.format("Your salary structure has been updated, effective from %s.", request.getEffectiveFromDate());
+        String message = String.format("Your salary structure has been updated, effective from %s.",
+                request.getEffectiveFromDate());
         String link = "/profile/salary"; // Direct link to salary details
         notificationService.createNotification(employee.getUser(), message, link);
 
@@ -826,10 +841,10 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
         try {
             String subject = "Password Changed Successfully";
             String body = String.format("""
-                <h3>Hello %s,</h3>
-                <p>Your password has been changed successfully.</p>
-                <p>If you did not make this change, please contact your administrator immediately.</p>
-                """, user.getFullName());
+                    <h3>Hello %s,</h3>
+                    <p>Your password has been changed successfully.</p>
+                    <p>If you did not make this change, please contact your administrator immediately.</p>
+                    """, user.getFullName());
 
             emailService.sendEmail("noreply@papms.com", user.getEmail(), subject, body);
         } catch (Exception e) {
@@ -837,10 +852,12 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
         }
     }
 
-    // service/EmployeeServiceImpl.java - Remove verification from bank account updates
+    // service/EmployeeServiceImpl.java - Remove verification from bank account
+    // updates
     @Override
     @Transactional
-    public CompleteEmployeeResponse updateBankAccount(Long employeeId, UpdateEmployeeRequest.UpdateBankAccountRequest request) {
+    public CompleteEmployeeResponse updateBankAccount(Long employeeId,
+            UpdateEmployeeRequest.UpdateBankAccountRequest request) {
         User currentUser = getLoggedInUser();
         Employee employee = getEmployeeWithAuthorization(employeeId, currentUser, true);
 
@@ -930,23 +947,24 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
 
             String subject = "Bank Account Update Requires Verification";
             String body = String.format("""
-                <h3>Bank Account Update Notification</h3>
-                <p>Employee <strong>%s</strong> has updated their bank account details.</p>
-                <p><strong>New Bank Details:</strong></p>
-                <ul>
-                    <li>Account Holder: %s</li>
-                    <li>Account Number: %s</li>
-                    <li>Bank: %s</li>
-                    <li>IFSC: %s</li>
-                </ul>
-                <p>Please verify these details in the admin panel.</p>
-                """,
+                    <h3>Bank Account Update Notification</h3>
+                    <p>Employee <strong>%s</strong> has updated their bank account details.</p>
+                    <p><strong>New Bank Details:</strong></p>
+                    <ul>
+                        <li>Account Holder: %s</li>
+                        <li>Account Number: %s</li>
+                        <li>Bank: %s</li>
+                        <li>IFSC: %s</li>
+                    </ul>
+                    <p>Please verify these details in the admin panel.</p>
+                    """,
                     employee.getUser().getFullName(),
                     bankAccount.getAccountHolderName(),
                     bankAccount.getAccountNumber(),
                     bankAccount.getBankName(),
                     bankAccount.getIfscCode());
-            String notificationMessage = String.format("Employee %s has updated their bank account details. Please review.",
+            String notificationMessage = String.format(
+                    "Employee %s has updated their bank account details. Please review.",
                     employee.getUser().getFullName());
             String link = String.format("/organizations/%d/employees/complete/%d",
                     organization.getId(), employee.getId());
@@ -971,8 +989,7 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
         try (
                 ByteArrayOutputStream out = new ByteArrayOutputStream();
                 PrintWriter writer = new PrintWriter(out);
-                CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT.withHeader(headers))
-        ) {
+                CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT.withHeader(headers))) {
             // Add a sample row to guide the user
             csvPrinter.printRecord(
                     "john.doe",
@@ -992,8 +1009,7 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
                     "5000.00",
                     "3000.00",
                     "2000.00",
-                    "2023-01-15"
-            );
+                    "2023-01-15");
 
             csvPrinter.flush();
             return out.toByteArray();
@@ -1003,41 +1019,50 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
         }
     }
 
-//    @Override
-//    @Transactional(readOnly = true)
-//    public Page<EmployeeResponseDto> getEmployeesByOrganization(
-//            Integer organizationId, Pageable pageable, String searchTerm, String department, Boolean activeStatus) {
-//
-//        User currentUser = getLoggedInUser();
-//        if (currentUser.getRole() == Role.ORG_ADMIN && !currentUser.getOrganizationId().equals(organizationId)) {
-//            throw new SecurityException("You cannot view employees of another organization.");
-//        }
-//
-//        // Use JPA Specifications for dynamic query building
-//        Specification<Employee> spec = (root, query, criteriaBuilder) -> {
-//            List<Predicate> predicates = new ArrayList<>();
-//            predicates.add(criteriaBuilder.equal(root.get("organization").get("id"), organizationId));
-//
-//            if (searchTerm != null && !searchTerm.isBlank()) {
-//                Predicate nameMatch = criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("fullName")), "%" + searchTerm.toLowerCase() + "%");
-//                Predicate emailMatch = criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("email")), "%" + searchTerm.toLowerCase() + "%");
-//                predicates.add(criteriaBuilder.or(nameMatch, emailMatch));
-//            }
-//
-//            if (department != null && !department.isBlank() && !department.equals("ALL")) {
-//                predicates.add(criteriaBuilder.equal(root.get("department"), department));
-//            }
-//
-//            if (activeStatus != null) {
-//                predicates.add(criteriaBuilder.equal(root.get("isActive"), activeStatus));
-//            }
-//
-//            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
-//        };
-//
-//        Page<Employee> employeePage = employeeRepository.findAll(spec, pageable);
-//        return employeePage.map(EmployeeMapper::toDto);
-//    }
+    // @Override
+    // @Transactional(readOnly = true)
+    // public Page<EmployeeResponseDto> getEmployeesByOrganization(
+    // Integer organizationId, Pageable pageable, String searchTerm, String
+    // department, Boolean activeStatus) {
+    //
+    // User currentUser = getLoggedInUser();
+    // if (currentUser.getRole() == Role.ORG_ADMIN &&
+    // !currentUser.getOrganizationId().equals(organizationId)) {
+    // throw new SecurityException("You cannot view employees of another
+    // organization.");
+    // }
+    //
+    // // Use JPA Specifications for dynamic query building
+    // Specification<Employee> spec = (root, query, criteriaBuilder) -> {
+    // List<Predicate> predicates = new ArrayList<>();
+    // predicates.add(criteriaBuilder.equal(root.get("organization").get("id"),
+    // organizationId));
+    //
+    // if (searchTerm != null && !searchTerm.isBlank()) {
+    // Predicate nameMatch =
+    // criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("fullName")),
+    // "%" + searchTerm.toLowerCase() + "%");
+    // Predicate emailMatch =
+    // criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("email")),
+    // "%" + searchTerm.toLowerCase() + "%");
+    // predicates.add(criteriaBuilder.or(nameMatch, emailMatch));
+    // }
+    //
+    // if (department != null && !department.isBlank() && !department.equals("ALL"))
+    // {
+    // predicates.add(criteriaBuilder.equal(root.get("department"), department));
+    // }
+    //
+    // if (activeStatus != null) {
+    // predicates.add(criteriaBuilder.equal(root.get("isActive"), activeStatus));
+    // }
+    //
+    // return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+    // };
+    //
+    // Page<Employee> employeePage = employeeRepository.findAll(spec, pageable);
+    // return employeePage.map(EmployeeMapper::toDto);
+    // }
 
     @Override
     @Transactional(readOnly = true)
@@ -1055,8 +1080,10 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
             predicates.add(criteriaBuilder.equal(root.get("organization").get("id"), organizationId));
 
             if (searchTerm != null && !searchTerm.isBlank()) {
-                Predicate nameMatch = criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("fullName")), "%" + searchTerm.toLowerCase() + "%");
-                Predicate emailMatch = criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("email")), "%" + searchTerm.toLowerCase() + "%");
+                Predicate nameMatch = criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("fullName")),
+                        "%" + searchTerm.toLowerCase() + "%");
+                Predicate emailMatch = criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("email")),
+                        "%" + searchTerm.toLowerCase() + "%");
                 predicates.add(criteriaBuilder.or(nameMatch, emailMatch));
             }
 
@@ -1092,8 +1119,10 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
             predicates.add(criteriaBuilder.equal(root.get("organization").get("id"), organizationId));
 
             if (searchTerm != null && !searchTerm.isBlank()) {
-                Predicate nameMatch = criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("fullName")), "%" + searchTerm.toLowerCase() + "%");
-                Predicate emailMatch = criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("email")), "%" + searchTerm.toLowerCase() + "%");
+                Predicate nameMatch = criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("fullName")),
+                        "%" + searchTerm.toLowerCase() + "%");
+                Predicate emailMatch = criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("email")),
+                        "%" + searchTerm.toLowerCase() + "%");
                 predicates.add(criteriaBuilder.or(nameMatch, emailMatch));
             }
 
@@ -1115,7 +1144,8 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
     // NEW: Implementation for the comprehensive update logic
     @Override
     @Transactional
-    public CompleteEmployeeResponse updateCompleteEmployee(Integer organizationId, Long employeeId, UpdateCompleteEmployeeRequest request) {
+    public CompleteEmployeeResponse updateCompleteEmployee(Integer organizationId, Long employeeId,
+            UpdateCompleteEmployeeRequest request) {
         User currentUser = getLoggedInUser();
         Employee employee = getEmployeeWithAuthorization(employeeId, currentUser, false);
         validateOrganizationAccess(currentUser, organizationId, employee);
@@ -1165,10 +1195,12 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
         employeeRepository.save(employee);
 
         if (hasChanges) {
-            notificationService.createNotification(employee.getUser(), "Your employee profile has been updated by an administrator.", "/profile");
+            notificationService.createNotification(employee.getUser(),
+                    "Your employee profile has been updated by an administrator.", "/profile");
         }
 
-        // Refetch the employee to ensure all updated relations are loaded for the response DTO
+        // Refetch the employee to ensure all updated relations are loaded for the
+        // response DTO
         Employee updatedEmployee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new NotFoundException("Employee not found after update"));
 
@@ -1176,11 +1208,13 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
     }
 
     // Helper method for the salary update logic as requested
-    private void updateSalaryStructureLogic(Employee employee, UpdateCompleteEmployeeRequest.SalaryDetails salaryRequest) {
+    private void updateSalaryStructureLogic(Employee employee,
+            UpdateCompleteEmployeeRequest.SalaryDetails salaryRequest) {
         // Deactivate current active salary structure
         salaryStructureRepository.findByEmployeeIdAndIsActiveTrue(employee.getId())
                 .ifPresent(currentSalary -> {
-                    log.info("Deactivating old salary structure ID {} for employee {}", currentSalary.getId(), employee.getId());
+                    log.info("Deactivating old salary structure ID {} for employee {}", currentSalary.getId(),
+                            employee.getId());
                     currentSalary.setIsActive(false);
                     salaryStructureRepository.save(currentSalary);
                 });
@@ -1198,8 +1232,53 @@ public String launchCsvImportJob(Integer organizationId, MultipartFile file) thr
                 .build();
 
         SalaryStructure savedSalary = salaryStructureRepository.save(newSalary);
-        log.info("Created new active salary structure ID {} for employee {}. Reason: {}", savedSalary.getId(), employee.getId(), salaryRequest.getChangeReason());
+        log.info("Created new active salary structure ID {} for employee {}. Reason: {}", savedSalary.getId(),
+                employee.getId(), salaryRequest.getChangeReason());
     }
 
+    @Override
+    @Transactional
+    public void scheduleEmployeeForHardDeletion(Integer organizationId, Long employeeId) {
+        User currentUser = getLoggedInUser();
+        Employee employee = getEmployeeWithAuthorization(employeeId, currentUser, false);
+        validateOrganizationAccess(currentUser, organizationId, employee);
+
+        if (employee.getDeletionScheduledAt() != null) {
+            throw new IllegalStateException("This employee is already scheduled for deletion.");
+        }
+
+        // 1. Immediately deactivate the employee and their user account
+        employee.setIsActive(false);
+        employee.getUser().setIsActive(false);
+
+        // 2. Set the deletion timestamp
+        employee.setDeletionScheduledAt(LocalDateTime.now());
+
+        employeeRepository.save(employee);
+        appUserRepository.save(employee.getUser());
+
+        log.info("Employee ID {} has been scheduled for hard deletion by Admin '{}'. Deletion will occur in 30 days.",
+                employeeId, currentUser.getUsername());
+
+        // 3. Send notification email to the employee
+        try {
+            String subject = "Account Deletion Notice";
+            String body = String.format(
+                    """
+                            <h3>Hello %s,</h3>
+                            <p>This is a notification to inform you that your account and all associated data with <strong>%s</strong> are scheduled for permanent deletion in 30 days.</p>
+                            <p>This action was initiated by your organization's administrator. If you believe this is an error, please contact your administrator immediately.</p>
+                            <p><strong>No further action is required from you if this is expected.</strong> All your personal data, salary information, and payroll history will be permanently erased from our systems after the 30-day notice period.</p>
+                            <p>Thank you.</p>
+                            """,
+                    employee.getUser().getFullName(), employee.getOrganization().getCompanyName());
+
+            emailService.sendEmail("no-reply@papms.com", employee.getUser().getEmail(), subject, body);
+            log.info("Sent 30-day deletion notice to employee {}", employee.getUser().getEmail());
+        } catch (Exception e) {
+            log.warn("Failed to send deletion notice email to {}", employee.getUser().getEmail(), e);
+            // Don't fail the transaction if email fails, but log it.
+        }
+    }
 
 }

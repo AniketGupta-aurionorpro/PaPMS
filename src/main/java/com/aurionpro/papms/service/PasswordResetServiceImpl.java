@@ -43,17 +43,16 @@ public class PasswordResetServiceImpl implements PasswordResetService {
 
         User user = userOptional.get();
 
-        // --- THIS IS THE FIX ---
-        // Before creating a new token, we find and delete any old one (expired or not)
-        // that is associated with this user. This prevents the DataIntegrityViolationException.
+        // Delete any existing token for this user and flush immediately
+        // This ensures the delete is executed before the insert
         tokenRepository.deleteByUser(user);
+        tokenRepository.flush(); // Force the delete to execute immediately
         log.info("Cleared any existing password reset tokens for user '{}'", user.getUsername());
-        // --- END OF FIX ---
 
         // Now we can safely create a new token
         String token = UUID.randomUUID().toString();
         PasswordResetToken resetToken = new PasswordResetToken(token, user);
-        tokenRepository.save(resetToken);
+        tokenRepository.saveAndFlush(resetToken); // Use saveAndFlush to ensure it's persisted
 
         // This link will now use the URL from your application.properties file
         String resetLink = frontendUrl + "/auth/reset-password?token=" + token;
@@ -88,16 +87,18 @@ public class PasswordResetServiceImpl implements PasswordResetService {
 
     private void sendPasswordResetEmail(User user, String resetLink) {
         String subject = "Your Password Reset Request for PaPMS";
-        String body = String.format("""
-            <h3>Hello %s,</h3>
-            <p>You recently requested to reset your password for your PaPMS account. Click the link below to reset it.</p>
-            <p><a href="%s" style="color: #ffffff; background-color: #007bff; padding: 10px 15px; text-decoration: none; border-radius: 5px;">Reset Your Password</a></p>
-            <p>If you did not request a password reset, please ignore this email or contact support if you have concerns.</p>
-            <p>This password reset link is only valid for the next 15 minutes.</p>
-            <br/>
-            <p>Thanks,</p>
-            <p>The PaPMS Team</p>
-            """, user.getFullName(), resetLink);
+        String body = String.format(
+                """
+                        <h3>Hello %s,</h3>
+                        <p>You recently requested to reset your password for your PaPMS account. Click the link below to reset it.</p>
+                        <p><a href="%s" style="color: #ffffff; background-color: #007bff; padding: 10px 15px; text-decoration: none; border-radius: 5px;">Reset Your Password</a></p>
+                        <p>If you did not request a password reset, please ignore this email or contact support if you have concerns.</p>
+                        <p>This password reset link is only valid for the next 15 minutes.</p>
+                        <br/>
+                        <p>Thanks,</p>
+                        <p>The PaPMS Team</p>
+                        """,
+                user.getFullName(), resetLink);
 
         emailService.sendEmail("no-reply@papms.com", user.getEmail(), subject, body);
     }

@@ -18,7 +18,7 @@ public interface TransactionService {
     Transaction processCredit(Organization organization, BigDecimal amount,
                               String description, TransactionSourceType sourceType, Long sourceId);
 //   Page<TransactionDto> getTransactionsForOrganization(Integer organizationId, Pageable pageable);
-    Page<TransactionDto> getTransactionsForOrganization(Integer organizationId, String searchTerm,
+Page<TransactionDto> getTransactionsForOrganization(Integer organizationId, String searchTerm,
                                                     LocalDate startDate, LocalDate endDate,
-                                                    TransactionType type, Pageable pageable);
+                                                    TransactionType type, TransactionSourceType sourceType, Pageable pageable);
 }

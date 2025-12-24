@@ -1,0 +1,18 @@
+2025-11-02 11:13:38.570 [HikariPool-1:housekeeper] WARN  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=10h15m52s900ms691µs700ns).
+2025-11-02 11:16:17.929 [HikariPool-1:housekeeper] WARN  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=2m1s131ms278µs300ns).
+2025-11-02 14:19:07.404 [HikariPool-1:housekeeper] WARN  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=1h2m47s248ms969µs400ns).
+2025-11-02 19:03:01.739 [HikariPool-1:housekeeper] WARN  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=4h44m1s984ms271µs300ns).
+2025-11-02 22:12:14.478 [HikariPool-1:housekeeper] WARN  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=19m46s746ms869µs800ns).
+2025-11-02 23:54:10.027 [scheduling-1] INFO  c.a.papms.batch.TokenCleanupTask - Running scheduled task to purge expired password reset tokens.
+2025-11-02 23:54:10.042 [scheduling-1] DEBUG org.hibernate.SQL - 
+    select
+        prt1_0.id,
+        prt1_0.expiry_date,
+        prt1_0.token,
+        prt1_0.user_id 
+    from
+        password_reset_tokens prt1_0 
+    where
+        prt1_0.expiry_date<?
+2025-11-02 23:54:10.043 [scheduling-1] TRACE org.hibernate.orm.jdbc.bind - binding parameter (1:TIMESTAMP) <- [2025-11-02T23:54:10.028778]
+2025-11-02 23:54:10.091 [scheduling-1] INFO  c.a.papms.batch.TokenCleanupTask - Successfully purged expired tokens.

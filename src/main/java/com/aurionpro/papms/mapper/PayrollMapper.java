@@ -55,6 +55,7 @@ public class PayrollMapper {
 
                 .netSalaryPaid(payment.getNetSalaryPaid())
                 .status(payment.getStatus().name())
+                .salaryModified(payment.getSalaryModified() != null && payment.getSalaryModified())
                 .build();
     }
 }

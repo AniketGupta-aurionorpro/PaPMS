@@ -28,8 +28,6 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-
-
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -79,14 +77,21 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/actuator/health",
                                 "/api/organizations/*/employees/check-username",
-                                "/api/organizations/*/employees/check-email"
-                        ).permitAll()
+                                "/api/organizations/*/employees/check-email")
+                        .permitAll()
 
                         // Deposit endpoints
                         .requestMatchers(HttpMethod.POST, "/api/deposits/self").hasRole("ORG_ADMIN")
 
-                        // Vendor Bill endpoints
-                        .requestMatchers("/api/bills/vendors/**").hasRole("ORG_ADMIN")
+                        // Vendor Bill endpoints - both ORG_ADMIN and VENDOR can access, method-level
+                        // security handles specifics
+                        .requestMatchers("/api/bills/vendors/**").hasAnyRole("ORG_ADMIN", "VENDOR")
+
+                        // Installment endpoints
+                        .requestMatchers("/api/bills/installments/**").hasAnyRole("ORG_ADMIN", "VENDOR")
+
+                        // Client Portal endpoints
+                        .requestMatchers("/api/clients/portal/**").hasAnyRole("ORG_ADMIN", "CLIENT")
 
                         // Organization endpoints
                         .requestMatchers(HttpMethod.GET, "/api/organizations/pending").hasRole("BANK_ADMIN")
@@ -94,21 +99,31 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/organizations/*/reject").hasRole("BANK_ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/organizations/*/suspend").hasRole("BANK_ADMIN")
 
+                        // Organization logo upload - allow ORG_ADMIN
+                        .requestMatchers(HttpMethod.POST, "/api/organizations/upload-logo").hasRole("ORG_ADMIN")
+
                         // Employee endpoints
+                        // Profile picture upload - allow both EMPLOYEE (self) and ORG_ADMIN
+                        .requestMatchers(HttpMethod.POST, "/api/organizations/*/employees/*/profile-picture")
+                        .hasAnyRole("ORG_ADMIN", "EMPLOYEE")
                         .requestMatchers(HttpMethod.POST, "/api/organizations/*/employees/**").hasRole("ORG_ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/organizations/*/employees/**").hasRole("ORG_ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/organizations/*/employees/payslips/**").hasRole("EMPLOYEE")
+                        .requestMatchers(HttpMethod.GET, "/api/organizations/*/employees/payslips/**")
+                        .hasRole("EMPLOYEE")
 
                         // Document endpoints
-                        .requestMatchers(HttpMethod.PUT, "/api/organizations/*/documents/*/approve").hasRole("BANK_ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/organizations/*/documents/*/reject").hasRole("BANK_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/organizations/*/documents/*/approve")
+                        .hasRole("BANK_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/organizations/*/documents/*/reject")
+                        .hasRole("BANK_ADMIN")
 
                         // Vendor endpoints
-                        .requestMatchers("/api/vendors/**").hasAnyRole("ORG_ADMIN","BANK_ADMIN")
+                        .requestMatchers("/api/vendors/**").hasAnyRole("ORG_ADMIN", "BANK_ADMIN")
 
                         // Payroll endpoints
                         .requestMatchers(HttpMethod.POST, "/api/organizations/*/payrolls").hasRole("ORG_ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/organizations/*/payrolls/**").hasAnyRole("BANK_ADMIN", "ORG_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/organizations/*/payrolls/**")
+                        .hasAnyRole("BANK_ADMIN", "ORG_ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/payrolls/pending").hasRole("BANK_ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/payrolls/*").hasAnyRole("BANK_ADMIN", "ORG_ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/payrolls/*/approve").hasRole("BANK_ADMIN")
@@ -116,8 +131,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/auth/force-change-password").authenticated()
                         .requestMatchers("/api/bank-admin/reports/**").hasRole("BANK_ADMIN")
                         // CATCH-ALL RULE: MUST BE LAST!
-                        .anyRequest().authenticated()
-                )
+                        .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .authenticationProvider(authenticationProvider(passwordEncoder()))
                 .exceptionHandling(ex -> ex
@@ -155,19 +169,19 @@ public class SecurityConfig {
     }
 
     private void writeJsonError(HttpServletResponse response, int status, String code, String message,
-                                HttpServletRequest request) throws IOException {
+            HttpServletRequest request) throws IOException {
         response.setStatus(status);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setContentType("application/json");
         String json = """
-				{
-				  "timestamp": "%s",
-				  "status": %d,
-				  "error": "%s",
-				  "message": "%s",
-				  "path": "%s"
-				}
-				""".formatted(Instant.now().toString(), status, code, escape(message), request.getRequestURI());
+                {
+                  "timestamp": "%s",
+                  "status": %d,
+                  "error": "%s",
+                  "message": "%s",
+                  "path": "%s"
+                }
+                """.formatted(Instant.now().toString(), status, code, escape(message), request.getRequestURI());
         response.getWriter().write(json);
     }
 

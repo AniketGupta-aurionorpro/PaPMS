@@ -133,6 +133,7 @@ public class EmployeeMapper {
         dto.setEmployeeActive(employee.getIsActive());
         dto.setCreatedAt(employee.getCreatedAt());
         dto.setProfilePictureUrl(employee.getProfilePictureUrl());
+        dto.setDeletionScheduledAt(employee.getDeletionScheduledAt());
 
         // Map bank account
         if (employee.getBankAccount() != null) {

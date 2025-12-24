@@ -4,6 +4,8 @@ import lombok.Builder;
 import lombok.Data;
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 @Data
 @Builder
 public class ClientResponseDto {
@@ -11,6 +13,7 @@ public class ClientResponseDto {
     private Integer clientId;
     private String companyName;
     private String contactPerson;
+    @JsonProperty("isClientActive")
     private boolean isClientActive;
 
     // User-specific fields
@@ -18,6 +21,7 @@ public class ClientResponseDto {
     private String username;
     private String email;
     private String fullName;
+    @JsonProperty("isUserActive")
     private boolean isUserActive;
 
     // Organization info

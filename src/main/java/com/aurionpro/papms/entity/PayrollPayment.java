@@ -50,6 +50,10 @@ public class PayrollPayment {
     @Column(name = "processed_at")
     private LocalDateTime processedAt;
 
+    @Column(name = "salary_modified")
+    @Builder.Default
+    private Boolean salaryModified = false;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

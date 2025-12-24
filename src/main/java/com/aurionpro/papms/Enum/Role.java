@@ -4,5 +4,6 @@ public enum Role {
     BANK_ADMIN,
     ORG_ADMIN,
     EMPLOYEE,
-    CLIENT
+    CLIENT,
+    VENDOR
 }

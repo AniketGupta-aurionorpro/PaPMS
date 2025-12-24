@@ -5,6 +5,7 @@ import com.aurionpro.papms.Enum.DocumentType;
 import com.aurionpro.papms.Enum.OrganizationStatus;
 import com.aurionpro.papms.Enum.Role;
 import com.aurionpro.papms.dto.DocumentResponseDto;
+import com.aurionpro.papms.dto.FinancialSummaryDto;
 import com.aurionpro.papms.dto.OrganizationProfileResponse;
 import com.aurionpro.papms.dto.OrganizationRegistrationReq;
 import com.aurionpro.papms.dto.OrganizationResponseDto;
@@ -58,12 +59,12 @@ public class OrganizationServiceImpl implements OrganizationService {
     private final VendorRepository vendorRepository;
 
     public OrganizationServiceImpl(OrganizationRepository organizationRepository,
-                                   PasswordEncoder passwordEncoder, AppUserRepository userRepo,
-                                   EmailService emailService, CloudinaryService cloudinaryService,
-                                   DocumentRepository documentRepository, ObjectMapper objectMapper,
-                                   NotificationService notificationService, EmployeeRepository employeeRepository,
-                                   ClientRepository clientRepository, InvoiceRepository invoiceRepository,
-                                   TransactionRepository transactionRepository, VendorRepository vendorRepository) {
+            PasswordEncoder passwordEncoder, AppUserRepository userRepo,
+            EmailService emailService, CloudinaryService cloudinaryService,
+            DocumentRepository documentRepository, ObjectMapper objectMapper,
+            NotificationService notificationService, EmployeeRepository employeeRepository,
+            ClientRepository clientRepository, InvoiceRepository invoiceRepository,
+            TransactionRepository transactionRepository, VendorRepository vendorRepository) {
         this.organizationRepository = organizationRepository;
         this.passwordEncoder = passwordEncoder;
         this.userRepo = userRepo;
@@ -81,16 +82,18 @@ public class OrganizationServiceImpl implements OrganizationService {
 
     // ADDED HELPER METHOD
     private String sanitizeForFolderName(String name) {
-        if (name == null) return "unknown";
+        if (name == null)
+            return "unknown";
         return name.toLowerCase().replaceAll("\\s+", "_").replaceAll("[^a-z0-9_.-]", "");
     }
 
     @Override
     @Transactional
-    public Organization registerOrganizationWithDocuments(String organizationDataJson, MultipartFile document1, MultipartFile document2) {
+    public Organization registerOrganizationWithDocuments(String organizationDataJson, MultipartFile document1,
+            MultipartFile document2) {
         OrganizationRegistrationReq request;
         try {
-            //converts the JSON string back into the DTO object
+            // converts the JSON string back into the DTO object
             request = objectMapper.readValue(organizationDataJson, OrganizationRegistrationReq.class);
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Invalid JSON format for organizationData.", e);
@@ -130,7 +133,8 @@ public class OrganizationServiceImpl implements OrganizationService {
         // STEP 3: Upload documents and link them to the organization.
         uploadAndLinkDocuments(savedOrganization, document1, document2);
         List<User> bankAdmins = userRepo.findByOrganizationIdAndRole(null, Role.BANK_ADMIN);
-        String message = String.format("New organization '%s' has registered and requires approval.", savedOrganization.getCompanyName());
+        String message = String.format("New organization '%s' has registered and requires approval.",
+                savedOrganization.getCompanyName());
         String link = String.format("/admin/organizations/%d", savedOrganization.getId());
         for (User admin : bankAdmins) {
             notificationService.createNotification(admin, message, link);
@@ -141,7 +145,8 @@ public class OrganizationServiceImpl implements OrganizationService {
     @Override
     @Transactional
     // MODIFIED: Added logo parameter
-    public Organization registerOrganizationWithDocuments(String organizationDataJson, MultipartFile document1, MultipartFile document2, MultipartFile logo) {
+    public Organization registerOrganizationWithDocuments(String organizationDataJson, MultipartFile document1,
+            MultipartFile document2, MultipartFile logo) {
         OrganizationRegistrationReq request;
         try {
             request = objectMapper.readValue(organizationDataJson, OrganizationRegistrationReq.class);
@@ -209,7 +214,8 @@ public class OrganizationServiceImpl implements OrganizationService {
         }
         String contentType = file.getContentType();
         if (contentType == null || !ALLOWED_IMAGE_TYPES.contains(contentType)) {
-            throw new IllegalArgumentException("Invalid file type for logo: '" + file.getOriginalFilename() + "'. Only JPG, JPEG, and PNG files are allowed.");
+            throw new IllegalArgumentException("Invalid file type for logo: '" + file.getOriginalFilename()
+                    + "'. Only JPG, JPEG, and PNG files are allowed.");
         }
     }
 
@@ -219,19 +225,22 @@ public class OrganizationServiceImpl implements OrganizationService {
                 .orElseThrow(() -> new NotFoundException("Organization not found with ID: " + id));
 
         if (organization.getStatus() != OrganizationStatus.PENDING_APPROVAL) {
-            throw new IllegalStateException("Organization cannot be approved as its current status is " + organization.getStatus());
+            throw new IllegalStateException(
+                    "Organization cannot be approved as its current status is " + organization.getStatus());
         }
         boolean allDocumentsApproved = organization.getDocuments().stream()
                 .allMatch(doc -> doc.getStatus() == DocumentStatus.Approved);
 
         if (!allDocumentsApproved) {
-            throw new IllegalStateException("Cannot approve organization. All verification documents must be in 'Approved' status.");
+            throw new IllegalStateException(
+                    "Cannot approve organization. All verification documents must be in 'Approved' status.");
         }
         // STEP 1: Find the associated ORG_ADMIN user who is currently disabled.
         // Assuming one ORG_ADMIN per org at registration.
         List<User> users = userRepo.findByOrganizationIdAndRole(organization.getId(), Role.ORG_ADMIN);
         if (users.isEmpty()) {
-            throw new IllegalStateException("Cannot approve organization: No ORG_ADMIN user found for organization ID: " + id);
+            throw new IllegalStateException(
+                    "Cannot approve organization: No ORG_ADMIN user found for organization ID: " + id);
         }
         User orgAdmin = users.get(0);
         orgAdmin.setIsActive(true); // Activate the user.
@@ -247,13 +256,16 @@ public class OrganizationServiceImpl implements OrganizationService {
         } while (organizationRepository.findByBankAssignedAccountNumber(newAccountNumber).isPresent());
         organization.setBankAssignedAccountNumber(newAccountNumber);
 
-        String message = String.format("Welcome! Your organization, '%s', has been approved. You can now access your dashboard.", organization.getCompanyName());
+        String message = String.format(
+                "Welcome! Your organization, '%s', has been approved. You can now access your dashboard.",
+                organization.getCompanyName());
         String link = "/dashboard";
         notificationService.createNotification(orgAdmin, message, link);
 
         // Send notification email
         String subject = "Your Organization Registration is Approved";
-        String body = "<h3>Congratulations! Your " + organization.getCompanyName() + " organization has been successfully registered and your admin account is now active.</h3>";
+        String body = "<h3>Congratulations! Your " + organization.getCompanyName()
+                + " organization has been successfully registered and your admin account is now active.</h3>";
         emailService.sendEmail("bank-email@example.com", organization.getContactEmail(), subject, body);
 
         return organizationRepository.save(organization);
@@ -265,24 +277,28 @@ public class OrganizationServiceImpl implements OrganizationService {
                 .orElseThrow(() -> new NotFoundException("Organization not found with ID: " + id));
 
         if (organization.getStatus() != OrganizationStatus.ACTIVE) {
-            throw new IllegalStateException("Organization cannot be suspended as its current status is " + organization.getStatus());
+            throw new IllegalStateException(
+                    "Organization cannot be suspended as its current status is " + organization.getStatus());
         }
 
         // STEP 1: Suspend the organization record.
         organization.setStatus(OrganizationStatus.SUSPENDED);
 
-//        // STEP 2: Disable all associated user accounts for this organization.
-//        List<User> usersToDisable = new ArrayList<>();
-//        usersToDisable.addAll(userRepo.findByOrganizationIdAndRole(id, Role.ORG_ADMIN));
-//        usersToDisable.addAll(userRepo.findByOrganizationIdAndRole(id, Role.EMPLOYEE));
-//
-//        for (User user : usersToDisable) {
-//            user.setIsActive(false);
-//        }
-//        userRepo.saveAll(usersToDisable);
+        // // STEP 2: Disable all associated user accounts for this organization.
+        // List<User> usersToDisable = new ArrayList<>();
+        // usersToDisable.addAll(userRepo.findByOrganizationIdAndRole(id,
+        // Role.ORG_ADMIN));
+        // usersToDisable.addAll(userRepo.findByOrganizationIdAndRole(id,
+        // Role.EMPLOYEE));
+        //
+        // for (User user : usersToDisable) {
+        // user.setIsActive(false);
+        // }
+        // userRepo.saveAll(usersToDisable);
 
         String subject = "Your Organization's Account has been Suspended";
-        String body = "<h3>Your " + organization.getCompanyName() + " organization services have been suspended by the Bank. Please contact support.</h3>";
+        String body = "<h3>Your " + organization.getCompanyName()
+                + " organization services have been suspended by the Bank. Please contact support.</h3>";
         emailService.sendEmail("bank-email@example.com", organization.getContactEmail(), subject, body);
 
         return organizationRepository.save(organization);
@@ -295,20 +311,20 @@ public class OrganizationServiceImpl implements OrganizationService {
                 .map(org -> OrganizationProfileResponse.builder()
                         .id(org.getId())
                         .companyName(org.getCompanyName())
-                        .email(org.getContactEmail())   // CORRECT MAPPING
-                        .logoUrl(org.getLogoUrl())       // CORRECT MAPPING
+                        .email(org.getContactEmail()) // CORRECT MAPPING
+                        .logoUrl(org.getLogoUrl()) // CORRECT MAPPING
                         .status(org.getStatus().name())
                         .build())
                 .orElseThrow(() -> new NotFoundException("Organization not found with ID: " + id));
     }
-
 
     private void uploadAndLinkDocuments(Organization organization, MultipartFile document1, MultipartFile document2) {
         String sanitizedOrgName = sanitizeForFolderName(organization.getCompanyName());
         String folderName = "papms/" + sanitizedOrgName + "/verification_docs";
         List<Document> documentsToSave = new ArrayList<>();
 
-        String sanitizedFilename1 = Objects.requireNonNull(document1.getOriginalFilename()).replaceAll("[^a-zA-Z0-9._-]", "");
+        String sanitizedFilename1 = Objects.requireNonNull(document1.getOriginalFilename())
+                .replaceAll("[^a-zA-Z0-9._-]", "");
         Map<String, String> uploadResult1 = cloudinaryService.uploadFile(document1, folderName);
         documentsToSave.add(Document.builder()
                 .fileName(sanitizedFilename1)
@@ -320,7 +336,8 @@ public class OrganizationServiceImpl implements OrganizationService {
                 .status(DocumentStatus.Pending)
                 .build());
 
-        String sanitizedFilename2 = Objects.requireNonNull(document2.getOriginalFilename()).replaceAll("[^a-zA-Z0-9._-]", "");
+        String sanitizedFilename2 = Objects.requireNonNull(document2.getOriginalFilename())
+                .replaceAll("[^a-zA-Z0-9._-]", "");
         Map<String, String> uploadResult2 = cloudinaryService.uploadFile(document2, folderName);
         documentsToSave.add(Document.builder()
                 .fileName(sanitizedFilename2)
@@ -350,11 +367,11 @@ public class OrganizationServiceImpl implements OrganizationService {
         // The mapping logic remains the same
         return organizationPage.map(OrganizationMapper::toSimpleDto);
     }
-//    @Override
-//    @Transactional(readOnly = true)
-//    public List<Organization> getAllOrganizations() {
-//        return organizationRepository.findByStatus(OrganizationStatus.ACTIVE);
-//    }
+    // @Override
+    // @Transactional(readOnly = true)
+    // public List<Organization> getAllOrganizations() {
+    // return organizationRepository.findByStatus(OrganizationStatus.ACTIVE);
+    // }
 
     @Override
     public List<Organization> getPendingOrganizations() {
@@ -397,13 +414,13 @@ public class OrganizationServiceImpl implements OrganizationService {
 
         // Send rejection email BEFORE deleting, while we still have the user's email
         String subject = "Update on Your Organization Registration";
-        String body = "<h3>We regret to inform you that your registration for " + organization.getCompanyName() + " has been rejected. Reason: " + rejectionReason + ". If you want please register again after resolving the issue</h3>";
+        String body = "<h3>We regret to inform you that your registration for " + organization.getCompanyName()
+                + " has been rejected. Reason: " + rejectionReason
+                + ". If you want please register again after resolving the issue</h3>";
         emailService.sendEmail("bank-email@example.com", organization.getContactEmail(), subject, body);
-
 
         userRepo.deleteAll(usersToDelete);
         documentRepository.deleteAll(organization.getDocuments());
-
 
         organizationRepository.delete(organization);
 
@@ -416,7 +433,8 @@ public class OrganizationServiceImpl implements OrganizationService {
     }
 
     @Override
-    public List<DocumentResponseDto> uploadVerificationDocuments(Integer organizationId, MultipartFile document1, MultipartFile document2) {
+    public List<DocumentResponseDto> uploadVerificationDocuments(Integer organizationId, MultipartFile document1,
+            MultipartFile document2) {
         // This method's logic seems redundant now that registration handles it,
         // but keeping it in case it's used for re-submission.
         validateIsPdf(document1);
@@ -430,7 +448,8 @@ public class OrganizationServiceImpl implements OrganizationService {
         // Fetch the updated list of documents for the response
         List<Document> updatedDocs = documentRepository.findAll()
                 .stream()
-                .filter(d -> d.getOrganization().getId().equals(organizationId) && d.getRelatedEntityType() == DocumentType.ORGANIZATION_VERIFICATION)
+                .filter(d -> d.getOrganization().getId().equals(organizationId)
+                        && d.getRelatedEntityType() == DocumentType.ORGANIZATION_VERIFICATION)
                 .collect(Collectors.toList());
 
         return updatedDocs.stream()
@@ -443,7 +462,8 @@ public class OrganizationServiceImpl implements OrganizationService {
             throw new IllegalArgumentException("File cannot be null or empty.");
         }
         if (!"application/pdf".equals(file.getContentType())) {
-            throw new IllegalArgumentException("Invalid file type for '" + file.getOriginalFilename() + "'. Only PDF files are allowed.");
+            throw new IllegalArgumentException(
+                    "Invalid file type for '" + file.getOriginalFilename() + "'. Only PDF files are allowed.");
         }
     }
 
@@ -453,7 +473,8 @@ public class OrganizationServiceImpl implements OrganizationService {
                 .orElseThrow(() -> new NotFoundException("Organization not found with ID: " + id));
 
         if (organization.getStatus() != OrganizationStatus.SUSPENDED) {
-            throw new IllegalStateException("Only a SUSPENDED organization can be reactivated. Current status is " + organization.getStatus());
+            throw new IllegalStateException(
+                    "Only a SUSPENDED organization can be reactivated. Current status is " + organization.getStatus());
         }
 
         // Reactivate the organization
@@ -468,7 +489,8 @@ public class OrganizationServiceImpl implements OrganizationService {
 
         // Send notification email
         String subject = "Your Organization's Account has been Reactivated";
-        String body = "<h3>Good news! Your " + organization.getCompanyName() + " organization services have been reactivated by the Bank. You can now access the portal as usual.</h3>";
+        String body = "<h3>Good news! Your " + organization.getCompanyName()
+                + " organization services have been reactivated by the Bank. You can now access the portal as usual.</h3>";
         emailService.sendEmail("bank-email@example.com", organization.getContactEmail(), subject, body);
 
         return organizationRepository.save(organization);
@@ -481,5 +503,73 @@ public class OrganizationServiceImpl implements OrganizationService {
         // the lazy-loaded 'employees' collection to be fetched when accessed later.
         return organizationRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Organization not found with ID: " + id));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public FinancialSummaryDto getFinancialSummary(Integer id) {
+        Organization org = organizationRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Organization not found with ID: " + id));
+
+        java.math.BigDecimal totalCredits = transactionRepository.findTotalCreditsByOrganizationId(id);
+        java.math.BigDecimal totalDebits = transactionRepository.findTotalDebitsByOrganizationId(id);
+        long totalTransactions = transactionRepository.countByOrganizationId(id);
+
+        java.time.LocalDateTime firstTxDate = transactionRepository
+                .findFirstByOrganizationIdOrderByTransactionDateAsc(id)
+                .map(tx -> tx.getTransactionDate())
+                .orElse(null);
+
+        java.time.LocalDateTime lastTxDate = transactionRepository
+                .findFirstByOrganizationIdOrderByTransactionDateDesc(id)
+                .map(tx -> tx.getTransactionDate())
+                .orElse(null);
+
+        return FinancialSummaryDto.builder()
+                .organizationId(org.getId())
+                .organizationName(org.getCompanyName())
+                .organizationStatus(org.getStatus().name())
+                .currentBalance(org.getInternalBalance())
+                .totalCredits(totalCredits != null ? totalCredits : java.math.BigDecimal.ZERO)
+                .totalDebits(totalDebits != null ? totalDebits : java.math.BigDecimal.ZERO)
+                .totalTransactions(totalTransactions)
+                .firstTransactionDate(firstTxDate)
+                .lastTransactionDate(lastTxDate)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public OrganizationProfileResponse uploadLogo(MultipartFile logoFile) {
+        String currentUsername = org.springframework.security.core.context.SecurityContextHolder.getContext()
+                .getAuthentication().getName();
+        User currentUser = userRepo.findByUsername(currentUsername)
+                .orElseThrow(() -> new NotFoundException("User not found: " + currentUsername));
+
+        if (currentUser.getRole() != Role.ORG_ADMIN) {
+            throw new SecurityException("Only organization administrators can upload logos.");
+        }
+
+        Integer organizationId = currentUser.getOrganizationId();
+        Organization organization = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new NotFoundException("Organization not found with ID: " + organizationId));
+
+        validateIsImage(logoFile);
+
+        String sanitizedOrgName = sanitizeForFolderName(organization.getCompanyName());
+        String folderName = "papms/" + sanitizedOrgName + "/logo";
+        Map<String, String> uploadResult = cloudinaryService.uploadFile(logoFile, folderName);
+        String logoUrl = uploadResult.get("url");
+
+        organization.setLogoUrl(logoUrl);
+        Organization updatedOrg = organizationRepository.save(organization);
+
+        return OrganizationProfileResponse.builder()
+                .id(updatedOrg.getId())
+                .companyName(updatedOrg.getCompanyName())
+                .email(updatedOrg.getContactEmail())
+                .logoUrl(updatedOrg.getLogoUrl())
+                .status(updatedOrg.getStatus().name())
+                .build();
     }
 }

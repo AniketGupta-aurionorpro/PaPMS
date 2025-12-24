@@ -38,7 +38,8 @@ public class TransactionExcelReportService {
         }
 
         log.info("Generating transaction Excel report for organization ID: {}", organizationId);
-        List<Transaction> transactions = transactionRepository.findAllByOrganizationIdOrderByTransactionDateDesc(organizationId);
+        List<Transaction> transactions = transactionRepository
+                .findAllByOrganizationIdOrderByTransactionDateDesc(organizationId);
 
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet("Transactions");

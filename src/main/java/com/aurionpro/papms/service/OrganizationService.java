@@ -1,6 +1,5 @@
 package com.aurionpro.papms.service;
 
-
 import com.aurionpro.papms.Enum.OrganizationStatus;
 import com.aurionpro.papms.dto.DocumentResponseDto;
 import com.aurionpro.papms.dto.OrganizationProfileResponse;
@@ -14,40 +13,49 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Optional;
-
+import com.aurionpro.papms.dto.FinancialSummaryDto;
 
 public interface OrganizationService {
 
+        // Organization registerOrganizationWithDocuments(OrganizationRegistrationReq
+        // request, MultipartFile document1, MultipartFile document2);
+        Organization registerOrganizationWithDocuments(String organizationDataJson, MultipartFile document1,
+                        MultipartFile document2);
 
-//    Organization registerOrganizationWithDocuments(OrganizationRegistrationReq request, MultipartFile document1, MultipartFile document2);
-    Organization registerOrganizationWithDocuments(String organizationDataJson, MultipartFile document1, MultipartFile document2);
+        // List<Organization> getAllOrganizations(); //bank ad /-
 
-    //List<Organization> getAllOrganizations(); //bank ad /-
+        // MODIFIED: Method signature updated for pagination
+        Page<OrganizationResponseDto> getAllOrganizations(Pageable pageable, OrganizationStatus status);
 
-    // MODIFIED: Method signature updated for pagination
-    Page<OrganizationResponseDto> getAllOrganizations(Pageable pageable, OrganizationStatus status);
+        List<Organization> getPendingOrganizations();
 
-    List<Organization> getPendingOrganizations();
-    Organization reactivateOrganization(Integer id);
-    Organization getOrganizationWithEmployees(Integer id);
-    Optional<Organization> getOrganizationById(Integer id);
+        Organization reactivateOrganization(Integer id);
 
-    Optional<Organization> getOrganizationByName(String companyName);
+        Organization getOrganizationWithEmployees(Integer id);
 
-    Optional<Organization> getOrganizationByUsername(String username);
+        Optional<Organization> getOrganizationById(Integer id);
 
-    Organization approveOrganization(Integer id);
+        Optional<Organization> getOrganizationByName(String companyName);
 
-    Organization rejectOrganization(Integer id, String rejectionReason);
+        Optional<Organization> getOrganizationByUsername(String username);
 
-    Organization suspendOrganization(Integer id);
+        Organization approveOrganization(Integer id);
 
-    Organization registerOrganizationWithDocuments(String organizationDataJson, MultipartFile document1, MultipartFile document2, MultipartFile logo);
+        Organization rejectOrganization(Integer id, String rejectionReason);
 
-    OrganizationProfileResponse getProfile(Integer id);
+        Organization suspendOrganization(Integer id);
 
-//    List<Document> uploadVerificationDocuments(Integer organizationId, MultipartFile document1, MultipartFile document2);
-    List<DocumentResponseDto> uploadVerificationDocuments(Integer organizationId, MultipartFile document1, MultipartFile document2);
+        Organization registerOrganizationWithDocuments(String organizationDataJson, MultipartFile document1,
+                        MultipartFile document2, MultipartFile logo);
 
+        OrganizationProfileResponse getProfile(Integer id);
 
+        // List<Document> uploadVerificationDocuments(Integer organizationId,
+        // MultipartFile document1, MultipartFile document2);
+        List<DocumentResponseDto> uploadVerificationDocuments(Integer organizationId, MultipartFile document1,
+                        MultipartFile document2);
+
+        FinancialSummaryDto getFinancialSummary(Integer id);
+
+        OrganizationProfileResponse uploadLogo(MultipartFile logoFile);
 }

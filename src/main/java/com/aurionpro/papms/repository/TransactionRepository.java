@@ -14,16 +14,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-public interface TransactionRepository extends JpaRepository<Transaction, Long>,JpaSpecificationExecutor<Transaction> {
-//    Page<Transaction> findByOrganizationIdOrderByTransactionDateDesc(Integer organizationId, Pageable pageable);
-//    List<Transaction> findAllByOrganizationIdOrderByTransactionDateDesc(Integer organizationId);
+public interface TransactionRepository extends JpaRepository<Transaction, Long>, JpaSpecificationExecutor<Transaction> {
+    // Page<Transaction> findByOrganizationIdOrderByTransactionDateDesc(Integer
+    // organizationId, Pageable pageable);
+    // List<Transaction> findAllByOrganizationIdOrderByTransactionDateDesc(Integer
+    // organizationId);
     Page<Transaction> findByOrganizationIdOrderByTransactionDateDesc(Integer organizationId, Pageable pageable);
 
     List<Transaction> findAllByOrganizationIdOrderByTransactionDateDesc(Integer organizationId);
+
     @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t WHERE t.organization.id = :orgId AND t.transactionDate >= :startDate")
     BigDecimal findTotalVolumeSince(@Param("orgId") Integer orgId, @Param("startDate") LocalDateTime startDate);
 
     long countByOrganizationIdAndTransactionDateAfter(Integer organizationId, LocalDateTime afterDate);
+
     @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t WHERE t.organization.id = :orgId AND t.transactionType = com.aurionpro.papms.Enum.TransactionType.CREDIT")
     BigDecimal findTotalCreditsByOrganizationId(@Param("orgId") Integer orgId);
 
@@ -36,10 +40,19 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
 
     Optional<Transaction> findFirstByOrganizationIdOrderByTransactionDateDesc(Integer organizationId);
 
-    @Query("SELECT new map(YEAR(t.transactionDate) as year, MONTH(t.transactionDate) as month, sum(t.amount) as totalVolume) " +
+    @Query("SELECT new map(YEAR(t.transactionDate) as year, MONTH(t.transactionDate) as month, sum(t.amount) as totalVolume) "
+            +
             "FROM Transaction t " +
             "WHERE t.transactionDate >= :startDate " +
             "GROUP BY YEAR(t.transactionDate), MONTH(t.transactionDate) " +
             "ORDER BY YEAR(t.transactionDate), MONTH(t.transactionDate) ASC")
     List<Map<String, Object>> getMonthlyTransactionVolumeSince(@Param("startDate") LocalDateTime startDate);
+
+    // NEW: Monthly transaction count for dashboard chart (tracks system activity)
+    @Query("SELECT new map(YEAR(t.transactionDate) as year, MONTH(t.transactionDate) as month, COUNT(t) as count) " +
+            "FROM Transaction t " +
+            "WHERE t.transactionDate >= :startDate " +
+            "GROUP BY YEAR(t.transactionDate), MONTH(t.transactionDate) " +
+            "ORDER BY YEAR(t.transactionDate), MONTH(t.transactionDate) ASC")
+    List<Map<String, Object>> getMonthlyTransactionCountSince(@Param("startDate") LocalDateTime startDate);
 }

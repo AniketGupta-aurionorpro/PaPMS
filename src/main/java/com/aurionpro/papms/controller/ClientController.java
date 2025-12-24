@@ -37,7 +37,6 @@ public class ClientController {
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
-
     @GetMapping("/clients")
     @PreAuthorize("hasRole('ORG_ADMIN')")
     public ResponseEntity<Page<ClientResponseDto>> getAllClients(@ParameterObject Pageable pageable) {
@@ -54,52 +53,7 @@ public class ClientController {
         return ResponseEntity.ok(clientService.getClientById(clientId));
     }
 
-    // == INVOICE ENDPOINTS ==
-    @PostMapping("/invoices")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
-    public ResponseEntity<InvoiceResponseDto> createInvoice(@Valid @RequestBody InvoiceRequestDto request) {
-        log.info("Request to create a new invoice #{} for client ID: {}", request.getInvoiceNumber(), request.getClientId());
-        InvoiceResponseDto response = clientService.createInvoice(request);
-        log.info("Successfully created invoice with ID: {}", response.getId());
-        return new ResponseEntity<>(response, HttpStatus.CREATED);
-    }
-
-    @GetMapping("/invoices")
-    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'CLIENT')")
-    public ResponseEntity<List<InvoiceResponseDto>> getAllInvoices() {
-        log.info("Request to get all invoices for the current user's organization/client profile.");
-        return ResponseEntity.ok(clientService.getAllInvoicesForCurrentOrg());
-    }
-
-    @GetMapping("/invoices/{invoiceId}")
-    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'CLIENT')")
-    public ResponseEntity<InvoiceResponseDto> getInvoiceById(@PathVariable Integer invoiceId) {
-        log.info("Request to get invoice by ID: {}", invoiceId);
-        return ResponseEntity.ok(clientService.getInvoiceById(invoiceId));
-    }
-
-    @PostMapping("/invoices/{invoiceId}/pay")
-    @PreAuthorize("hasRole('CLIENT')")
-    public ResponseEntity<String> payInvoice(@PathVariable Integer invoiceId) {
-        log.info("Request by client to pay invoice ID: {}", invoiceId);
-        String result = clientService.processInvoicePayment(invoiceId);
-        log.info("Payment for invoice ID {} processed successfully.", invoiceId);
-        return ResponseEntity.ok(result);
-    }
-
-    @GetMapping("/invoices/{invoiceId}/download")
-    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'CLIENT')")
-    public ResponseEntity<byte[]> downloadInvoicePdf(@PathVariable Integer invoiceId) {
-        log.info("Request to download PDF for invoice ID: {}", invoiceId);
-        byte[] pdfBytes = invoicePdfService.generateInvoicePdf(invoiceId);
-        log.info("Successfully generated PDF for invoice ID: {}", invoiceId);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.setContentDispositionFormData("attachment", "invoice-" + invoiceId + ".pdf");
-
-        return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
-    }
+    // Invoice endpoints moved to InvoiceController to avoid duplicate mappings
 
     @GetMapping("/organizations/{organizationId}/clients")
     @PreAuthorize("hasAnyRole('BANK_ADMIN', 'ORG_ADMIN')")
@@ -108,7 +62,8 @@ public class ClientController {
             @ParameterObject Pageable pageable) {
         log.info("Request to get clients for organization ID {} with pagination: {}", organizationId, pageable);
         Page<ClientResponseDto> clientsPage = clientService.getAllClientsForOrganization(organizationId, pageable);
-        log.info("Returning {} clients on page {} for org ID {}", clientsPage.getNumberOfElements(), pageable.getPageNumber(), organizationId);
+        log.info("Returning {} clients on page {} for org ID {}", clientsPage.getNumberOfElements(),
+                pageable.getPageNumber(), organizationId);
         return ResponseEntity.ok(clientsPage);
     }
 }

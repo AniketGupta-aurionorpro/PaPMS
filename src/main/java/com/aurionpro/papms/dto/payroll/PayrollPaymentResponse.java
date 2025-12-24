@@ -24,4 +24,5 @@ public class PayrollPaymentResponse {
 
     private BigDecimal netSalaryPaid;
     private String status;
+    private Boolean salaryModified;
 }

@@ -71,6 +71,9 @@ public class Employee {
     @Column(name = "profile_picture_url", length = 512) // ADDED THIS LINE
     private String profilePictureUrl;
 
+    @Column(name = "deletion_scheduled_at") // NEW FIELD
+    private LocalDateTime deletionScheduledAt;
+    
     public SalaryStructure getCurrentSalaryStructure() {
         if (salaryStructures == null) return null;
         return salaryStructures.stream()

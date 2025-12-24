@@ -42,6 +42,8 @@ public class EmployeeController {
     private final PayrollService payrollService;
     private final AppUserRepository appUserRepository;
 
+
+
     @PostMapping
     @PreAuthorize("hasRole('ORG_ADMIN')")
     public ResponseEntity<String> addEmployee(
@@ -382,4 +384,18 @@ public class EmployeeController {
         boolean isAvailable = appUserRepository.findByEmail(email).isEmpty();
         return ResponseEntity.ok(Map.of("isAvailable", isAvailable));
     }
+
+    @DeleteMapping("/{employeeId}/schedule-deletion")
+    @PreAuthorize("hasRole('ORG_ADMIN')")
+    @Operation(summary = "Schedule an employee for permanent deletion",
+            description = "Immediately deactivates the employee and sends a 30-day deletion notice email. The employee's data will be hard-deleted after 30 days.")
+    public ResponseEntity<Void> scheduleEmployeeForHardDeletion(
+            @PathVariable Integer organizationId,
+            @PathVariable Long employeeId) {
+        log.info("Request to schedule hard deletion for employee ID {} from organization ID {}", employeeId, organizationId);
+        employeeService.scheduleEmployeeForHardDeletion(organizationId, employeeId);
+        log.info("Successfully scheduled hard deletion for employee ID {}", employeeId);
+        return ResponseEntity.accepted().build(); // 202 Accepted is a good status for long-running proc
+    }
+
 }

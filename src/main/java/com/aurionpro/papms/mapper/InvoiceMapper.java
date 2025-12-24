@@ -16,15 +16,17 @@ public class InvoiceMapper {
                 .id(invoice.getId())
                 .invoiceNumber(invoice.getInvoiceNumber())
                 .amount(invoice.getAmount())
+                .paidAmount(invoice.getPaidAmount())
                 .issueDate(invoice.getIssueDate())
                 .dueDate(invoice.getDueDate())
                 .status(invoice.getStatus())
                 .paidAt(invoice.getPaidAt())
                 .organizationId(invoice.getOrganization().getId())
                 .organizationName(invoice.getOrganization().getCompanyName())
-                .clientId(invoice.getClient().getId())
-                .clientCompanyName(invoice.getClient().getCompanyName())
-                .clientContactPerson(invoice.getClient().getContactPerson())
+                .clientId(invoice.getClient().getId().intValue())
+                .clientCompanyName(invoice.getClient().getClientName())
+                .clientContactPerson(invoice.getClient().getClientName())
+                .clientEmail(invoice.getClient().getContactEmail())
                 .build();
     }
 

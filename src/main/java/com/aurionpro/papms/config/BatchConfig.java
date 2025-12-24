@@ -49,23 +49,40 @@ public class BatchConfig {
     private final PasswordEncoder passwordEncoder;
     private final com.aurionpro.papms.emails.EmailService emailService;
 
-//    @Bean
-//    public TaskExecutor taskExecutor() {
-//        SimpleAsyncTaskExecutor asyncTaskExecutor = new SimpleAsyncTaskExecutor();
-//        asyncTaskExecutor.setConcurrencyLimit(10); // <-- This is the modern replacement for throttleLimit
-//        asyncTaskExecutor.setThreadNamePrefix("spring_batch-");
-//        return asyncTaskExecutor;
-//    }
+    // @Bean
+    // public TaskExecutor taskExecutor() {
+    // SimpleAsyncTaskExecutor asyncTaskExecutor = new SimpleAsyncTaskExecutor();
+    // asyncTaskExecutor.setConcurrencyLimit(10); // <-- This is the modern
+    // replacement for throttleLimit
+    // asyncTaskExecutor.setThreadNamePrefix("spring_batch-");
+    // return asyncTaskExecutor;
+    // }
 
     @Bean
     public TaskExecutor taskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(10); // Number of threads to keep in the pool
-        executor.setMaxPoolSize(10);  // Maximum number of threads
+        executor.setMaxPoolSize(10); // Maximum number of threads
         executor.setQueueCapacity(100); // How many tasks can wait in line
         executor.setThreadNamePrefix("batch-thread-");
         executor.initialize();
         return executor;
+    }
+
+    /**
+     * Async JobLauncher - launches jobs in a separate thread so the API returns
+     * immediately.
+     * The job itself runs synchronously (with proper status tracking) but in a
+     * background thread.
+     */
+    @Bean
+    public org.springframework.batch.core.launch.JobLauncher asyncJobLauncher(
+            JobRepository jobRepository, TaskExecutor taskExecutor) throws Exception {
+        org.springframework.batch.core.launch.support.TaskExecutorJobLauncher jobLauncher = new org.springframework.batch.core.launch.support.TaskExecutorJobLauncher();
+        jobLauncher.setJobRepository(jobRepository);
+        jobLauncher.setTaskExecutor(taskExecutor);
+        jobLauncher.afterPropertiesSet();
+        return jobLauncher;
     }
 
     // ================== 1. READER ==================
@@ -93,8 +110,7 @@ public class BatchConfig {
         return new EmployeeCsvItemProcessor(
                 appUserRepository,
                 bankAccountRepository,
-                passwordEncoder
-        );
+                passwordEncoder);
     }
 
     @Bean
@@ -133,13 +149,14 @@ public class BatchConfig {
                 try {
                     String subject = "Welcome to " + organization.getCompanyName();
                     String body = String.format("""
-                        <h3>Hello %s,</h3>
-                        <p>Your employee account has been created successfully via bulk upload.</p>
-                        <p><b>Username:</b> %s</p>
-                        <p>Please use the temporary password from the CSV file to log in.</p>
-                        """, employee.getUser().getFullName(), employee.getUser().getUsername());
+                            <h3>Hello %s,</h3>
+                            <p>Your employee account has been created successfully via bulk upload.</p>
+                            <p><b>Username:</b> %s</p>
+                            <p>Please use the temporary password from the CSV file to log in.</p>
+                            """, employee.getUser().getFullName(), employee.getUser().getUsername());
 
-                    emailService.sendEmail(organization.getContactEmail(), employee.getUser().getEmail(), subject, body);
+                    emailService.sendEmail(organization.getContactEmail(), employee.getUser().getEmail(), subject,
+                            body);
                 } catch (Exception e) {
                     log.warn("Failed to send welcome email to {}", employee.getUser().getEmail(), e);
                 }
@@ -150,8 +167,7 @@ public class BatchConfig {
     @Bean
     public CompositeItemWriter<Employee> compositeEmployeeWriter(
             JpaItemWriter<Employee> employeeJpaWriter,
-            ItemWriter<Employee> employeeEmailWriter
-    ) {
+            ItemWriter<Employee> employeeEmailWriter) {
         CompositeItemWriter<Employee> writer = new CompositeItemWriter<>();
         writer.setDelegates(List.of(employeeJpaWriter, employeeEmailWriter));
         return writer;
@@ -160,30 +176,30 @@ public class BatchConfig {
     // ================== 4. STEP ==================
     @Bean
     public Step employeeCsvImportStep(JobRepository jobRepository,
-                                      PlatformTransactionManager transactionManager,
-                                      FlatFileItemReader<CsvEmployeeRecord> employeeCsvReader,
-                                      EmployeeCsvItemProcessor employeeCsvProcessor,
-                                      ItemProcessor<Employee, Employee> employeeOrganizationProcessor,
-                                      CompositeItemWriter<Employee> compositeEmployeeWriter,
-                                      TaskExecutor taskExecutor) {
+            PlatformTransactionManager transactionManager,
+            FlatFileItemReader<CsvEmployeeRecord> employeeCsvReader,
+            EmployeeCsvItemProcessor employeeCsvProcessor,
+            ItemProcessor<Employee, Employee> employeeOrganizationProcessor,
+            CompositeItemWriter<Employee> compositeEmployeeWriter) {
 
         return new StepBuilder("employeeCsvImportStep", jobRepository)
-                .<CsvEmployeeRecord, Employee>chunk(10, transactionManager) // Process 50 records per transaction
+                .<CsvEmployeeRecord, Employee>chunk(10, transactionManager) // Process 10 records per transaction
                 .reader(employeeCsvReader)
                 .processor(new CompositeItemProcessorBuilder<CsvEmployeeRecord, Employee>()
                         .delegates(employeeCsvProcessor, employeeOrganizationProcessor)
                         .build())
                 .writer(compositeEmployeeWriter)
                 .listener(employeeCsvProcessor) // IMPORTANT: To trigger the @BeforeStep data loading
-                .taskExecutor(taskExecutor)
+                // Removed taskExecutor to ensure synchronous execution and proper status
+                // tracking
                 .build();
     }
 
     // ================== 5. JOB ==================
     @Bean
     public Job employeeCsvImportJob(JobRepository jobRepository,
-                                    Step employeeCsvImportStep,
-                                    JobCompletionNotificationListener listener) {
+            Step employeeCsvImportStep,
+            JobCompletionNotificationListener listener) {
         return new JobBuilder("employeeCsvImportJob", jobRepository)
                 .incrementer(new RunIdIncrementer())
                 .listener(listener)

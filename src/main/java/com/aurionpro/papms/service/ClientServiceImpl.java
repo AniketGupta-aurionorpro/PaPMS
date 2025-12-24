@@ -1,5 +1,6 @@
 package com.aurionpro.papms.service;
 
+import com.aurionpro.papms.Enum.ClientStatus;
 import com.aurionpro.papms.Enum.InvoiceStatus;
 import com.aurionpro.papms.Enum.Role;
 import com.aurionpro.papms.Enum.TransactionSourceType;
@@ -37,6 +38,7 @@ public class ClientServiceImpl implements ClientService {
     private final TransactionService transactionService;
     private final EmailService emailService; // Dependency Injection for EmailService
     private final NotificationService notificationService;
+
     private User getLoggedInUser() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByUsername(username)
@@ -47,11 +49,13 @@ public class ClientServiceImpl implements ClientService {
     @Transactional
     public ClientResponseDto createClient(ClientRequestDto request) {
         User currentUser = getLoggedInUser();
-        log.info("Attempting to create client '{}' by user '{}' for organization ID {}", request.getCompanyName(), currentUser.getUsername(), currentUser.getOrganizationId());
+        log.info("Attempting to create client '{}' by user '{}' for organization ID {}", request.getCompanyName(),
+                currentUser.getUsername(), currentUser.getOrganizationId());
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new DuplicateUserException("Username '" + request.getUsername() + "' is already taken.");
         }
-        if (clientRepository.existsByCompanyNameAndOrganizationId(request.getCompanyName(), currentUser.getOrganizationId())) {
+        if (clientRepository.existsByClientNameAndOrganizationId(request.getCompanyName(),
+                currentUser.getOrganizationId())) {
             throw new DuplicateUserException("A client with this company name already exists for your organization.");
         }
 
@@ -82,7 +86,8 @@ public class ClientServiceImpl implements ClientService {
     @Transactional
     public InvoiceResponseDto createInvoice(InvoiceRequestDto request) {
         User currentUser = getLoggedInUser();
-        log.info("Attempting to create invoice #{} for client ID {} by user '{}'", request.getInvoiceNumber(), request.getClientId(), currentUser.getUsername());
+        log.info("Attempting to create invoice #{} for client ID {} by user '{}'", request.getInvoiceNumber(),
+                request.getClientId(), currentUser.getUsername());
         Organization org = organizationRepository.findById(currentUser.getOrganizationId())
                 .orElseThrow(() -> new NotFoundException("Organization not found for current user."));
 
@@ -93,8 +98,10 @@ public class ClientServiceImpl implements ClientService {
             throw new SecurityException("This client does not belong to your organization.");
         }
 
-        if (invoiceRepository.findByInvoiceNumberAndOrganizationId(request.getInvoiceNumber(), org.getId()).isPresent()) {
-            throw new DuplicateUserException("Invoice number '" + request.getInvoiceNumber() + "' already exists for your organization.");
+        if (invoiceRepository.findByInvoiceNumberAndOrganizationId(request.getInvoiceNumber(), org.getId())
+                .isPresent()) {
+            throw new DuplicateUserException(
+                    "Invoice number '" + request.getInvoiceNumber() + "' already exists for your organization.");
         }
 
         Invoice newInvoice = InvoiceMapper.toEntity(request, org, client);
@@ -104,7 +111,7 @@ public class ClientServiceImpl implements ClientService {
         // EMAIL INTEGRATION: Notify the client about the new invoice
         String clientEmail = client.getUser().getEmail();
         String subject = "New Invoice #" + savedInvoice.getInvoiceNumber() + " from " + org.getCompanyName();
-        String body = "<h3>Hello " + client.getCompanyName() + ",</h3>"
+        String body = "<h3>Hello " + client.getClientName() + ",</h3>"
                 + "<p>A new invoice has been issued to you by " + org.getCompanyName() + ".</p>"
                 + "<p><b>Invoice Number:</b> " + savedInvoice.getInvoiceNumber() + "</p>"
                 + "<p><b>Amount Due:</b> $" + savedInvoice.getAmount() + "</p>"
@@ -135,9 +142,9 @@ public class ClientServiceImpl implements ClientService {
                 invoice.getAmount(),
                 "Payment for invoice #" + invoice.getInvoiceNumber(),
                 TransactionSourceType.INVOICE,
-                Long.valueOf(invoice.getId())
-        );
-        log.info("Credit transaction processed for invoice ID {}. Organization {} balance updated.", invoiceId, organization.getId());
+                Long.valueOf(invoice.getId()));
+        log.info("Credit transaction processed for invoice ID {}. Organization {} balance updated.", invoiceId,
+                organization.getId());
 
         invoice.setStatus(InvoiceStatus.PAID);
         invoice.setPaidAt(LocalDateTime.now());
@@ -147,8 +154,9 @@ public class ClientServiceImpl implements ClientService {
         // EMAIL 1: Send payment confirmation to the client
         String clientEmail = client.getUser().getEmail();
         String clientSubject = "Payment Confirmation for Invoice #" + invoice.getInvoiceNumber();
-        String clientBody = "<h3>Dear " + client.getCompanyName() + ",</h3>"
-                + "<p>This is a confirmation that we have successfully received your payment of <b>$" + invoice.getAmount() + "</b> for invoice #" + invoice.getInvoiceNumber() + ".</p>"
+        String clientBody = "<h3>Dear " + client.getClientName() + ",</h3>"
+                + "<p>This is a confirmation that we have successfully received your payment of <b>$"
+                + invoice.getAmount() + "</b> for invoice #" + invoice.getInvoiceNumber() + ".</p>"
                 + "<p>Thank you for your business!</p>";
         emailService.sendEmail(organization.getContactEmail(), clientEmail, clientSubject, clientBody);
 
@@ -156,14 +164,15 @@ public class ClientServiceImpl implements ClientService {
         String orgEmail = organization.getContactEmail();
         String orgSubject = "Payment Received for Invoice #" + invoice.getInvoiceNumber();
         String orgBody = "<h3>Payment Notification</h3>"
-                + "<p>Payment of <b>$" + invoice.getAmount() + "</b> has been received from " + client.getCompanyName() + " for invoice #" + invoice.getInvoiceNumber() + ".</p>"
+                + "<p>Payment of <b>$" + invoice.getAmount() + "</b> has been received from " + client.getClientName()
+                + " for invoice #" + invoice.getInvoiceNumber() + ".</p>"
                 + "<p>The organization's internal balance has been updated accordingly.</p>";
         emailService.sendEmail("no-reply@papms.com", orgEmail, orgSubject, orgBody);
 
         List<User> orgAdmins = userRepository.findByOrganizationIdAndRole(organization.getId(), Role.ORG_ADMIN);
 
         String notificationMessage = String.format("Payment of ₹%.2f received from %s for Invoice #%s.",
-                invoice.getAmount(), client.getCompanyName(), invoice.getInvoiceNumber());
+                invoice.getAmount(), client.getClientName(), invoice.getInvoiceNumber());
         String link = String.format("/invoices/%d", invoice.getId());
 
         for (User admin : orgAdmins) {
@@ -178,7 +187,6 @@ public class ClientServiceImpl implements ClientService {
         return clientPage.map(ClientMapper::toDto);
     }
 
-
     @Override
     @Transactional(readOnly = true)
     public ClientResponseDto getClientById(Integer clientId) {
@@ -192,7 +200,6 @@ public class ClientServiceImpl implements ClientService {
         return ClientMapper.toDto(client);
     }
 
-
     @Override
     @Transactional(readOnly = true)
     public Page<ClientResponseDto> getAllClientsForCurrentOrg(Pageable pageable) {
@@ -201,7 +208,8 @@ public class ClientServiceImpl implements ClientService {
         // 1. Call the new paginated repository method
         Page<Client> clientPage = clientRepository.findByOrganizationId(currentUser.getOrganizationId(), pageable);
 
-        // 2. Use the .map() function to convert the Page<Client> to Page<ClientResponseDto>
+        // 2. Use the .map() function to convert the Page<Client> to
+        // Page<ClientResponseDto>
         return clientPage.map(ClientMapper::toDto);
     }
 
@@ -217,8 +225,8 @@ public class ClientServiceImpl implements ClientService {
             throw new SecurityException("You are not authorized to update this client.");
         }
 
-        client.setCompanyName(request.getCompanyName());
-        client.setContactPerson(request.getContactPerson());
+        client.setClientName(request.getCompanyName());
+        // contactPerson field removed - using clientName
 
         User user = client.getUser();
         user.setFullName(request.getFullName());
@@ -233,7 +241,8 @@ public class ClientServiceImpl implements ClientService {
     @Transactional
     public void toggleClientStatus(Integer clientId, boolean isActive) {
         User currentUser = getLoggedInUser();
-        log.info("User {} is attempting to set active status to {} for client ID: {}", currentUser.getUsername(), isActive, clientId);
+        log.info("User {} is attempting to set active status to {} for client ID: {}", currentUser.getUsername(),
+                isActive, clientId);
         Client client = clientRepository.findById(clientId)
                 .orElseThrow(() -> new NotFoundException("Client not found with ID: " + clientId));
 
@@ -241,7 +250,7 @@ public class ClientServiceImpl implements ClientService {
             throw new SecurityException("You are not authorized to modify this client.");
         }
 
-        client.setActive(isActive);
+        client.setStatus(isActive ? ClientStatus.ACTIVE : ClientStatus.SUSPENDED);
         client.getUser().setIsActive(isActive);
 
         clientRepository.save(client);
@@ -255,7 +264,8 @@ public class ClientServiceImpl implements ClientService {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new NotFoundException("Invoice not found with ID: " + invoiceId));
 
-        if (currentUser.getRole() == Role.ORG_ADMIN && !invoice.getOrganization().getId().equals(currentUser.getOrganizationId())) {
+        if (currentUser.getRole() == Role.ORG_ADMIN
+                && !invoice.getOrganization().getId().equals(currentUser.getOrganizationId())) {
             throw new SecurityException("Access denied to this invoice.");
         }
         if (currentUser.getRole() == Role.CLIENT) {

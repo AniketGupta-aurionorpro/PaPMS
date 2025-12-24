@@ -66,4 +66,6 @@ public interface EmployeeService {
     public Page<CompleteEmployeeResponse> getEmployeesByOrganization1(
             Integer organizationId, Pageable pageable, String searchTerm, String department, Boolean activeStatus);
 
+    void scheduleEmployeeForHardDeletion(Integer organizationId, Long employeeId);
+
     }

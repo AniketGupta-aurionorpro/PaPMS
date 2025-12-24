@@ -52,7 +52,8 @@ public class InvoicePdfService {
             PdfStylingHelper.addLogoAndTitle(document, invoice.getOrganization(), "INVOICE");
 
             // --- Billed From/To and Invoice Details Section ---
-            Table detailsTable = new Table(UnitValue.createPercentArray(new float[]{1, 1, 1, 1})).useAllAvailableWidth();
+            Table detailsTable = new Table(UnitValue.createPercentArray(new float[] { 1, 1, 1, 1 }))
+                    .useAllAvailableWidth();
             detailsTable.setBorder(Border.NO_BORDER);
 
             // Billed From (Left side)
@@ -64,20 +65,23 @@ public class InvoicePdfService {
             detailsTable.addCell(fromCell);
 
             // Invoice Details (Right side)
-            Table nestedDetails = new Table(UnitValue.createPercentArray(new float[]{1, 1})).useAllAvailableWidth();
+            Table nestedDetails = new Table(UnitValue.createPercentArray(new float[] { 1, 1 })).useAllAvailableWidth();
             nestedDetails.addCell(PdfStylingHelper.createLabelCell("Invoice #"));
-            nestedDetails.addCell(PdfStylingHelper.createValueCell(valueOf(invoice.getInvoiceNumber()), TextAlignment.RIGHT));
+            nestedDetails.addCell(
+                    PdfStylingHelper.createValueCell(valueOf(invoice.getInvoiceNumber()), TextAlignment.RIGHT));
             nestedDetails.addCell(PdfStylingHelper.createLabelCell("Issue Date"));
-            nestedDetails.addCell(PdfStylingHelper.createValueCell(invoice.getIssueDate().format(DateTimeFormatter.ISO_LOCAL_DATE), TextAlignment.RIGHT));
+            nestedDetails.addCell(PdfStylingHelper.createValueCell(
+                    invoice.getIssueDate().format(DateTimeFormatter.ISO_LOCAL_DATE), TextAlignment.RIGHT));
             nestedDetails.addCell(PdfStylingHelper.createLabelCell("Due Date"));
-            nestedDetails.addCell(PdfStylingHelper.createValueCell(invoice.getDueDate().format(DateTimeFormatter.ISO_LOCAL_DATE), TextAlignment.RIGHT));
+            nestedDetails.addCell(PdfStylingHelper.createValueCell(
+                    invoice.getDueDate().format(DateTimeFormatter.ISO_LOCAL_DATE), TextAlignment.RIGHT));
             detailsTable.addCell(new Cell(1, 2).add(nestedDetails).setBorder(Border.NO_BORDER));
 
             // Billed To
             Cell toCell = new Cell(1, 2).setBorder(Border.NO_BORDER).setPadding(10);
             toCell.add(new Paragraph("BILLED TO").setBold().setFontColor(PdfStylingHelper.PRIMARY_COLOR));
-            toCell.add(new Paragraph(valueOf(invoice.getClient().getCompanyName())).setBold());
-            toCell.add(new Paragraph("Attn: " + valueOf(invoice.getClient().getContactPerson())));
+            toCell.add(new Paragraph(valueOf(invoice.getClient().getClientName())).setBold());
+            toCell.add(new Paragraph("Attn: " + valueOf(invoice.getClient().getClientName())));
             toCell.add(new Paragraph(valueOf(invoice.getClient().getUser().getEmail())));
             detailsTable.addCell(toCell);
 
@@ -85,20 +89,23 @@ public class InvoicePdfService {
             document.add(new Paragraph("\n"));
 
             // --- Invoice Items Table ---
-            Table itemTable = new Table(UnitValue.createPercentArray(new float[]{4, 1})).useAllAvailableWidth();
+            Table itemTable = new Table(UnitValue.createPercentArray(new float[] { 4, 1 })).useAllAvailableWidth();
             itemTable.addHeaderCell(PdfStylingHelper.createHeaderCell("Description"));
             itemTable.addHeaderCell(PdfStylingHelper.createHeaderCell("Amount (INR)"));
 
             // Since there are no line items, we create a single descriptive row
             itemTable.addCell(new Cell().add(new Paragraph("Services Rendered / Products Sold")).setPadding(8));
-            itemTable.addCell(new Cell().add(new Paragraph(invoice.getAmount().toPlainString())).setTextAlignment(TextAlignment.RIGHT).setPadding(8));
+            itemTable.addCell(new Cell().add(new Paragraph(invoice.getAmount().toPlainString()))
+                    .setTextAlignment(TextAlignment.RIGHT).setPadding(8));
             document.add(itemTable);
 
             // --- Totals Section ---
-            Table totalTable = new Table(UnitValue.createPercentArray(new float[]{1, 1})).useAllAvailableWidth();
+            Table totalTable = new Table(UnitValue.createPercentArray(new float[] { 1, 1 })).useAllAvailableWidth();
             totalTable.setBorder(Border.NO_BORDER).setMarginLeft(300); // Push to the right
             totalTable.addCell(PdfStylingHelper.createLabelCell("Total"));
-            totalTable.addCell(PdfStylingHelper.createValueCell("₹ " + invoice.getAmount().toPlainString(), TextAlignment.RIGHT).setBold().setFontSize(14));
+            totalTable.addCell(
+                    PdfStylingHelper.createValueCell("₹ " + invoice.getAmount().toPlainString(), TextAlignment.RIGHT)
+                            .setBold().setFontSize(14));
 
             document.add(totalTable);
 

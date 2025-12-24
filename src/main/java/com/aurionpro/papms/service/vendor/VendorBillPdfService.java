@@ -40,35 +40,52 @@ public class VendorBillPdfService {
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try (PdfWriter writer = new PdfWriter(baos);
-             PdfDocument pdf = new PdfDocument(writer);
-             Document document = new Document(pdf, PageSize.A4)) {
+                PdfDocument pdf = new PdfDocument(writer);
+                Document document = new Document(pdf, PageSize.A4)) {
 
             document.setMargins(36, 36, 50, 36);
 
-            PdfStylingHelper.addLogoAndTitle(document, bill.getOrganization(), "PAYMENT ADVICE");
+            // Determine if bill is paid or pending
+            boolean isPaid = bill.isFullyPaid() || bill.getVendorPayment() != null;
+            String documentTitle = isPaid ? "PAYMENT ADVICE" : "VENDOR INVOICE";
+            String amountColumnHeader = isPaid ? "Amount Paid (INR)" : "Amount Due (INR)";
+            String fromLabel = isPaid ? "PAID FROM" : "BILL TO";
+            String toLabel = isPaid ? "PAID TO" : "FROM VENDOR";
+            String totalLabel = isPaid ? "Total Paid" : "Total Due";
 
-            // --- Paid From/To and Bill Details Section ---
-            Table detailsTable = new Table(UnitValue.createPercentArray(new float[]{1, 1, 1, 1})).useAllAvailableWidth();
+            PdfStylingHelper.addLogoAndTitle(document, bill.getOrganization(), documentTitle);
+
+            // --- From/To and Bill Details Section ---
+            Table detailsTable = new Table(UnitValue.createPercentArray(new float[] { 1, 1, 1, 1 }))
+                    .useAllAvailableWidth();
             detailsTable.setBorder(Border.NO_BORDER);
 
-            // Paid From
+            // From/Bill To
             Cell fromCell = new Cell(1, 2).setBorder(Border.NO_BORDER).setPadding(10);
-            fromCell.add(new Paragraph("PAID FROM").setBold().setFontColor(PdfStylingHelper.PRIMARY_COLOR));
+            fromCell.add(new Paragraph(fromLabel).setBold().setFontColor(PdfStylingHelper.PRIMARY_COLOR));
             fromCell.add(new Paragraph(valueOf(bill.getOrganization().getCompanyName())).setBold());
             fromCell.add(new Paragraph(valueOf(bill.getOrganization().getAddress())));
             detailsTable.addCell(fromCell);
 
             // Bill Details
-            Table nestedDetails = new Table(UnitValue.createPercentArray(new float[]{1, 1})).useAllAvailableWidth();
+            Table nestedDetails = new Table(UnitValue.createPercentArray(new float[] { 1, 1 })).useAllAvailableWidth();
             nestedDetails.addCell(PdfStylingHelper.createLabelCell("Bill #"));
             nestedDetails.addCell(PdfStylingHelper.createValueCell(valueOf(bill.getBillNumber()), TextAlignment.RIGHT));
-            nestedDetails.addCell(PdfStylingHelper.createLabelCell("Payment Date"));
-            nestedDetails.addCell(PdfStylingHelper.createValueCell(bill.getBillDate().format(DateTimeFormatter.ISO_LOCAL_DATE), TextAlignment.RIGHT));
+            nestedDetails.addCell(PdfStylingHelper.createLabelCell(isPaid ? "Payment Date" : "Bill Date"));
+            nestedDetails.addCell(PdfStylingHelper
+                    .createValueCell(bill.getBillDate().format(DateTimeFormatter.ISO_LOCAL_DATE), TextAlignment.RIGHT));
+            nestedDetails.addCell(PdfStylingHelper.createLabelCell("Status"));
+            nestedDetails.addCell(PdfStylingHelper.createValueCell(bill.getStatus().name(), TextAlignment.RIGHT));
+            if (!isPaid && bill.getDueDate() != null) {
+                nestedDetails.addCell(PdfStylingHelper.createLabelCell("Due Date"));
+                nestedDetails.addCell(PdfStylingHelper.createValueCell(
+                        bill.getDueDate().format(DateTimeFormatter.ISO_LOCAL_DATE), TextAlignment.RIGHT));
+            }
             detailsTable.addCell(new Cell(1, 2).add(nestedDetails).setBorder(Border.NO_BORDER));
 
-            // Paid To
+            // To/From Vendor
             Cell toCell = new Cell(1, 2).setBorder(Border.NO_BORDER).setPadding(10);
-            toCell.add(new Paragraph("PAID TO").setBold().setFontColor(PdfStylingHelper.PRIMARY_COLOR));
+            toCell.add(new Paragraph(toLabel).setBold().setFontColor(PdfStylingHelper.PRIMARY_COLOR));
             toCell.add(new Paragraph(valueOf(bill.getVendor().getVendorName())).setBold());
             toCell.add(new Paragraph(valueOf(bill.getVendor().getAddress())));
             toCell.add(new Paragraph(valueOf(bill.getVendor().getContactEmail())));
@@ -77,21 +94,49 @@ public class VendorBillPdfService {
             document.add(detailsTable);
             document.add(new Paragraph("\n"));
 
-            // --- Payment Items Table ---
-            Table itemTable = new Table(UnitValue.createPercentArray(new float[]{4, 1})).useAllAvailableWidth();
+            // --- Items Table ---
+            Table itemTable = new Table(UnitValue.createPercentArray(new float[] { 4, 1 })).useAllAvailableWidth();
             itemTable.addHeaderCell(PdfStylingHelper.createHeaderCell("Description"));
-            itemTable.addHeaderCell(PdfStylingHelper.createHeaderCell("Amount Paid (INR)"));
+            itemTable.addHeaderCell(PdfStylingHelper.createHeaderCell(amountColumnHeader));
 
-            String description = bill.getVendorPayment().getDescription() != null ? bill.getVendorPayment().getDescription() : "Payment against services/goods";
+            // Handle case where bill hasn't been paid yet (vendorPayment is null)
+            String description;
+            if (bill.getVendorPayment() != null && bill.getVendorPayment().getDescription() != null) {
+                description = bill.getVendorPayment().getDescription();
+            } else if (bill.getDescription() != null) {
+                description = bill.getDescription();
+            } else {
+                description = "Payment against services/goods";
+            }
             itemTable.addCell(new Cell().add(new Paragraph(description)).setPadding(8));
-            itemTable.addCell(new Cell().add(new Paragraph(bill.getAmount().toPlainString())).setTextAlignment(TextAlignment.RIGHT).setPadding(8));
+
+            // Show appropriate amount based on status
+            String displayAmount = isPaid ? bill.getPaidAmount().toPlainString() : bill.getDueAmount().toPlainString();
+            itemTable.addCell(new Cell().add(new Paragraph(displayAmount))
+                    .setTextAlignment(TextAlignment.RIGHT).setPadding(8));
             document.add(itemTable);
 
             // --- Totals Section ---
-            Table totalTable = new Table(UnitValue.createPercentArray(new float[]{1, 1})).useAllAvailableWidth();
+            Table totalTable = new Table(UnitValue.createPercentArray(new float[] { 1, 1 })).useAllAvailableWidth();
             totalTable.setBorder(Border.NO_BORDER).setMarginLeft(300);
-            totalTable.addCell(PdfStylingHelper.createLabelCell("Total Paid"));
-            totalTable.addCell(PdfStylingHelper.createValueCell("₹ " + bill.getAmount().toPlainString(), TextAlignment.RIGHT).setBold().setFontSize(14));
+
+            // Show bill amount breakdown
+            totalTable.addCell(PdfStylingHelper.createLabelCell("Bill Amount"));
+            totalTable.addCell(
+                    PdfStylingHelper.createValueCell("₹ " + bill.getAmount().toPlainString(), TextAlignment.RIGHT));
+
+            if (bill.getPaidAmount().compareTo(java.math.BigDecimal.ZERO) > 0) {
+                totalTable.addCell(PdfStylingHelper.createLabelCell("Paid Amount"));
+                totalTable.addCell(PdfStylingHelper.createValueCell("₹ " + bill.getPaidAmount().toPlainString(),
+                        TextAlignment.RIGHT));
+            }
+
+            totalTable.addCell(PdfStylingHelper.createLabelCell(totalLabel));
+            totalTable.addCell(
+                    PdfStylingHelper
+                            .createValueCell("₹ " + (isPaid ? bill.getPaidAmount().toPlainString()
+                                    : bill.getDueAmount().toPlainString()), TextAlignment.RIGHT)
+                            .setBold().setFontSize(14));
             document.add(totalTable);
 
             PdfStylingHelper.addFooter(document);

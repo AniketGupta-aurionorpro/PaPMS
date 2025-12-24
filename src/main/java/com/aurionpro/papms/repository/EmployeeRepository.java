@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 public interface EmployeeRepository extends JpaRepository<Employee, Long>,JpaSpecificationExecutor<Employee> {
     Optional<Employee> findByUserId(Long userId);
@@ -21,4 +22,6 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long>,JpaSpe
     @Query("SELECT e FROM Employee e WHERE e.organization.id = :organizationId AND e.user.username = :username")
     Optional<Employee> findByOrganizationIdAndUsername(@Param("organizationId") Integer organizationId,
                                                        @Param("username") String username);
+
+    List<Employee> findAllByDeletionScheduledAtBefore(LocalDateTime cutoffDate);
 }

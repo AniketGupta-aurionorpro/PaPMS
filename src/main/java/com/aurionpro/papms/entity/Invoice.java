@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "invoices", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"organization_id", "invoice_number"})
+        @UniqueConstraint(columnNames = { "organization_id", "invoice_number" })
 })
 @Data
 @NoArgsConstructor
@@ -41,6 +41,10 @@ public class Invoice {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
+    @Column(name = "paid_amount", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal paidAmount = BigDecimal.ZERO;
+
     @Column(name = "issue_date", nullable = false)
     private LocalDate issueDate;
 
@@ -62,4 +66,14 @@ public class Invoice {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    // Helper method to calculate remaining due
+    public BigDecimal getDueAmount() {
+        return amount.subtract(paidAmount);
+    }
+
+    // Helper to check if fully paid
+    public boolean isFullyPaid() {
+        return paidAmount.compareTo(amount) >= 0;
+    }
 }
